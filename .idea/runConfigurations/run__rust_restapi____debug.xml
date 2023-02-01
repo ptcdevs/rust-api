@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="run [rust-restapi]" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+  <configuration default="false" name="run [rust-restapi] - debug" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
     <option name="command" value="run --package rust-restapi --bin rust-restapi" />
     <option name="workingDirectory" value="file://$PROJECT_DIR$/rust" />
     <option name="channel" value="DEFAULT" />

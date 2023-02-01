@@ -1,0 +1,20 @@
+###
+# curl -X POST --location "http://localhost:8080/echo"
+#    -H "Content-Type: application/json"
+#    -d "{
+#          \"id\": 123,
+#          \"value\": \"foo\"
+#        }"
+POST http://localhost:8080/echo
+Content-Type: application/json
+
+{
+  "id": 123,
+  "value": "foo"
+}
+
+### Send POST request with body as parameters
+POST https://httpbin.org/post
+Content-Type: application/x-www-form-urlencoded
+
+id=999&value=content
