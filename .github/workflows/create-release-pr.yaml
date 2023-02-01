@@ -19,7 +19,6 @@ jobs:
           path: rust/Cargo.toml
           key: ${{ runner.os }}-cargo-toml
       - name: Cargo format and check
-        working-directory: rust
         run: | 
           cargo fmt
           cargo check
@@ -32,4 +31,3 @@ jobs:
         with:
           release-type: rust
           package-name: release-please-action
-          path: 'rust'
