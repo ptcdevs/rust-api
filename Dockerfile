@@ -12,38 +12,14 @@ RUN cargo fetch
 COPY rust/src /code
 
 FROM base AS development
-
 EXPOSE 8000
-
-CMD [ "cargo", "run", "--offline" ]
-
-FROM base AS dev-envs
-
-EXPOSE 8000
-RUN <<EOF
-apt-get update
-apt-get install -y --no-install-recommends git
-EOF
-
-RUN <<EOF
-useradd -s /bin/bash -m vscode
-groupadd docker
-usermod -aG docker vscode
-EOF
-# install Docker tools (cli, buildx, compose)
-COPY --from=gloursdocker/docker / /
 CMD [ "cargo", "run", "--offline" ]
 
 FROM base AS builder
-
 RUN cargo build --release --offline
 
-FROM debian:buster-slim
-
+FROM debian:buster-slim as production
 ENV ROCKET_ENV=production
-
 EXPOSE 8000
-
-COPY --from=builder /code/target/release/react-rust-postgres /react-rust-postgres
-
-CMD [ "/react-rust-postgres" ]
+COPY --from=builder /code/target/release/rust-restapi /rust-restapi
+CMD [ "/rust-restapi" ]

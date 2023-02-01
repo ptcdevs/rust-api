@@ -1,0 +1,29 @@
+services:
+  debug:
+    build:
+      context: ./
+      target: development
+    environment:
+      - ADDRESS=0.0.0.0:8000
+      - RUST_LOG=debug
+    networks:
+      - server-side
+    volumes:
+      - ./rust/src:/code/src
+      - backend-cache:/code/target
+  release:
+    build:
+      context: ./
+      target: production
+    environment:
+      - ADDRESS=0.0.0.0:8000
+      - RUST_LOG=debug
+    networks:
+      - server-side
+    volumes:
+      - ./rust/src:/code/src
+      - backend-cache:/code/target
+networks:
+  server-side: {}
+volumes:
+  backend-cache: {}
