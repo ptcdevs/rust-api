@@ -1,9 +1,8 @@
-use std::{error::Error, net::Ipv4Addr};
-
 use actix_web::dev::JsonBody;
 use actix_web::middleware::ErrorHandlerResponse::Response;
 use actix_web::{get, middleware::Logger, post, web, App, HttpResponse, HttpServer, Responder};
 use serde::{Deserialize, Serialize};
+use std::{error::Error, net::Ipv4Addr};
 use utoipa::{OpenApi, ToSchema};
 use utoipa_swagger_ui::SwaggerUi;
 

@@ -39,3 +39,4 @@ jobs:
           release-type: rust
           package-name: release-please-action
           path: 'rust'
+          changelog-path: './CHANGELOG.md'
