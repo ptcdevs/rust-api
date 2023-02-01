@@ -19,6 +19,8 @@ jobs:
           path: rust/Cargo.toml
           key: ${{ runner.os }}-cargo-toml
       - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
       - name: Cargo format and check
         working-directory: rust
         run: | 
