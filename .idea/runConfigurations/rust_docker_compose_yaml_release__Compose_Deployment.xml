@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="docker-compose.yaml.release: Compose Deployment" type="docker-deploy" factoryName="docker-compose.yml" server-name="Docker">
+  <configuration default="false" name="rust/docker-compose.yaml.release: Compose Deployment" type="docker-deploy" factoryName="docker-compose.yml" server-name="Docker">
     <deployment type="docker-compose.yml">
       <settings>
         <option name="envFilePath" value="" />
@@ -9,7 +9,7 @@
             <option value="release" />
           </list>
         </option>
-        <option name="sourceFilePath" value="docker-compose.yaml" />
+        <option name="sourceFilePath" value="rust/docker-compose.yaml" />
       </settings>
     </deployment>
     <method v="2" />
