@@ -1,0 +1,28 @@
+on:
+  push:
+    branches:
+      - master
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+name: Create release pr
+jobs:
+  validate-updates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Cargo format
+        working-directory: rust
+        run: cargo fmt
+      - name: Cargo check
+        working-directory: rust
+        run: cargo check
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: google-github-actions/release-please-action@v3
+        with:
+          release-type: rust
+          package-name: release-please-action
+          path: 'rust'
+          changelog-path: '.'
