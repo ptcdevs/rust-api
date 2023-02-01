@@ -26,7 +26,6 @@ jobs:
         run: | 
           cargo fmt
           cargo check
-          cargo build --release --all-features
   release-please:
     needs:
       - validate-latest-changes
