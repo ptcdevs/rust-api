@@ -1413,6 +1413,7 @@ version = "3.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ae3d4f4da6408f0f20ff58196ed619c94306ab32635aeca3d3fa0768c0bd0de2"
 dependencies = [
+ "actix-web",
  "mime_guess",
  "regex",
  "rust-embed",
