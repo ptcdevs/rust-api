@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/ptcdevs/rust-api/compare/v0.1.0...v0.2.0) (2023-02-01)
+
+
+### Features
+
+* add swagger-ui ([afd6d6a](https://github.com/ptcdevs/rust-api/commit/afd6d6ad01951b997dacb881044ea8c8c7941a97))
+
 ## 0.1.0 (2023-02-01)
 
 
