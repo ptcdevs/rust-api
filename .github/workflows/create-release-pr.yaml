@@ -12,12 +12,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Cargo format
+      - name: Cache rust
+        id: cache-rust
+        uses: actions/cache@v3
+        with:
+          path: rust/Cargo.toml
+          key: ${{ runner.os }}-cargo-toml
+      - uses: actions-rs/toolchain@v1
+      - name: Cargo format and check
         working-directory: rust
-        run: cargo fmt
-      - name: Cargo check
-        working-directory: rust
-        run: cargo check
+        run: | 
+          cargo fmt
+          cargo check
+          cargo build --release --all-features
   release-please:
     needs:
       - validate-latest-changes
