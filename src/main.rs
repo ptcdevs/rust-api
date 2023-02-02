@@ -20,8 +20,11 @@ struct ResponseBlob {
 
 #[utoipa::path(get, path = "/",
     responses(
-    (status = 200, description = "Hello world!"),
-    (status = NOT_FOUND, description = "not found!")
+        (status = 200,
+            description = "ok",
+            content_type = "text/plain"
+            ),
+        (status = NOT_FOUND, description = "not found!")
     ))]
 #[get("/")]
 pub async fn hello() -> impl Responder {
@@ -46,6 +49,10 @@ async fn echo(hello_blob: web::Json<RequestBlob>) -> actix_web::Result<impl Resp
     Ok(web::Json(response_blob))
 }
 
+#[utoipa::path(get, path = "/hey",
+    responses(
+        (status = 200, description = "ok"),
+        (status = NOT_FOUND, description = "not found!")))]
 async fn manual_hello() -> impl Responder {
     HttpResponse::Ok().body("Hey there!")
 }
