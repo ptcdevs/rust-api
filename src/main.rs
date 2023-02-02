@@ -68,6 +68,8 @@ async fn main() -> std::io::Result<()> {
 
     //TODO: setup dependency injection using traits:
     // https://medium.com/geekculture/dependency-injection-in-rust-3822bf689888
+    // https://jmmv.dev/2022/04/rust-traits-and-dependency-injection.html
+    // https://docs.rs/runtime_injector_actix/latest/runtime_injector_actix/ ***
 
     HttpServer::new(|| {
         App::new()
