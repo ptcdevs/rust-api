@@ -78,3 +78,5 @@ fabric.properties
 
 # Rust
 **/target
+/http/http-client.private.env.json
+/config/local/github-secret.env
