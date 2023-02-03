@@ -85,7 +85,7 @@ async fn main() -> Result<(), std::io::Error> {
             .route("/hey", web::get().to(manual_hello))
             .app_data(web::Data::new(GithubOauthConfig {
                 client_id: config.github_oauth.client_id.to_string(),
-                client_secret: github_secret.clone(),
+                client_secret: github_secret.to_string(),
                 redirect_url: config.github_oauth.redirect_url.to_string(),
                 scopes: config.github_oauth.scopes.to_vec(),
             }))
