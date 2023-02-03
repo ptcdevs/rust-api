@@ -1,12 +1,12 @@
 mod github_oauth;
-mod new;
+mod config;
 
 use std::borrow::Borrow;
 use std::env;
 use actix_web::cookie::Key;
 use actix_web::dev::JsonBody;
 use actix_web::middleware::ErrorHandlerResponse::Response;
-use actix_web::{get, middleware::Logger, post, web, App, HttpResponse, HttpServer, Responder, error, Error, middleware::ErrorHandlerResponse};
+use actix_web::{App, error, Error, get, HttpResponse, HttpServer, middleware::ErrorHandlerResponse, middleware::Logger, post, Responder, web};
 use serde::{Deserialize, Serialize};
 use actix_web::web::Redirect;
 use reqwest::StatusCode;
@@ -14,6 +14,7 @@ use utoipa::{OpenApi, ToSchema};
 use utoipa_swagger_ui::SwaggerUi;
 use crate::github_oauth::github_oauth::GithubOauthConfig;
 use confy::{ConfyError, load_path};
+use config::AppConfig;
 
 #[derive(ToSchema, Deserialize)]
 struct RequestBlob {
@@ -61,20 +62,6 @@ pub async fn login(github_oauth: web::Data<GithubOauthConfig>) -> actix_web::Res
     let github_authorize = github_oauth.get_authorize_url();
     //TODO: pass state to user session, then extract on /callback
     Ok(Redirect::to(github_authorize.0).using_status_code(StatusCode::FOUND))
-}
-
-#[derive(Default, Debug, Serialize, Deserialize)]
-struct AppConfig {
-    github_oauth: GithubOauth,
-}
-
-#[derive(Default, Debug, Serialize, Deserialize)]
-struct GithubOauth {
-    app_name: String,
-    app_url: String,
-    client_id: String,
-    redirect_url: String,
-    scopes: Vec<String>,
 }
 
 #[actix_web::main]
