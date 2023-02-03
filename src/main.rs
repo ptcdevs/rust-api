@@ -3,6 +3,7 @@ mod config;
 
 use std::borrow::Borrow;
 use std::env;
+use std::sync::Arc;
 use actix_web::cookie::Key;
 use actix_web::dev::JsonBody;
 use actix_web::middleware::ErrorHandlerResponse::Response;
@@ -72,6 +73,12 @@ async fn main() -> Result<(), std::io::Error> {
 
     let config: AppConfig = confy::load_path("config/local/config.yaml").expect("failure reading github creds");
     let github_secret = env::var("GITHUB_OAUTH_CLIENT_SECRET").expect("missing github client secret from environment variables");
+    let github_config = web::Data::new(GithubOauthConfig {
+        client_id: config.github_oauth.client_id,
+        client_secret: github_secret,
+        redirect_url: config.github_oauth.redirect_url,
+        scopes: config.github_oauth.scopes,
+    });
 
     HttpServer::new(move || {
         App::new()
@@ -83,12 +90,7 @@ async fn main() -> Result<(), std::io::Error> {
                     .url("/api-doc/openapi.json", ApiDoc::openapi()),
             )
             .route("/hey", web::get().to(manual_hello))
-            .app_data(web::Data::new(GithubOauthConfig {
-                client_id: config.github_oauth.client_id.to_string(),
-                client_secret: github_secret.to_string(),
-                redirect_url: config.github_oauth.redirect_url.to_string(),
-                scopes: config.github_oauth.scopes.to_vec(),
-            }))
+             .app_data(github_config.clone())
     })
         .bind(("127.0.0.1", 8080))?
         .run()
