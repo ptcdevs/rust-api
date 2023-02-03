@@ -5,6 +5,7 @@ pub mod github_oauth {
     use std::os::linux::raw::stat;
     use once_cell::sync::Lazy;
 
+    #[derive(Clone)]
     pub struct GithubOauthConfig {
         pub client_id: String,
         pub client_secret: String,
@@ -13,15 +14,6 @@ pub mod github_oauth {
     }
 
     impl GithubOauthConfig {
-        pub fn new(client_id: String, client_secret: String, redirect_url: String, scopes: Vec<String>) -> GithubOauthConfig {
-            GithubOauthConfig {
-                client_id: client_id,
-                client_secret: client_secret,
-                redirect_url: redirect_url,
-                scopes: scopes,
-            }
-        }
-
         pub fn get_authorize_url(&self) -> (String, String) {
             let state = "fo1Ooc1uofoozeithimah4iaW";
             let authorize_url = format!(
@@ -35,4 +27,27 @@ pub mod github_oauth {
             (authorize_url, state.to_string())
         }
     }
+
+    pub struct GithubOauthConfigBorrowed<'a> {
+        pub client_id: &'a str,
+        pub client_secret: &'a str,
+        pub redirect_url: &'a str,
+        pub scopes: &'a Vec<String>,
+    }
+
+    impl<'a> GithubOauthConfigBorrowed<'a> {
+        pub fn get_authorize_url(&self) -> (String, String) {
+            let state = "fo1Ooc1uofoozeithimah4iaW";
+            let authorize_url = format!(
+                "https://github.com/login/oauth/authorize?client_id={}&redirect_uri={}&scope={}&state={}&allow_signup=false",
+                self.client_id,
+                self.redirect_url,
+                self.scopes.join("+"),
+                state
+            );
+
+            (authorize_url, state.to_string())
+        }
+    }
+
 }
