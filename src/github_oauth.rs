@@ -2,6 +2,7 @@ pub mod github_oauth {
     use actix_web::{get, Error, Responder, http::StatusCode, web::Redirect};
     use utoipa::{ToSchema};
     use std::{sync::Mutex, collections::HashMap};
+    use std::os::linux::raw::stat;
     use once_cell::sync::Lazy;
 
     pub struct GithubOauthConfig {
@@ -21,9 +22,17 @@ pub mod github_oauth {
             }
         }
 
-        pub fn get_authorize_url(&self) -> String {
-            let authorizeUrl = "https://github.com/login/oauth/authorize?client_id=92e48c903bf0b3e8c4f3&redirect_uri=http%3A%2F%2Flocalhost%3A8080%2Fauth%2Fcallback&scope=user+repo&state=fo1Ooc1uofoozeithimah4iaW&allow_signup=false".to_string();
-            "".to_string()
+        pub fn get_authorize_url(&self) -> (String, String) {
+            let state = "fo1Ooc1uofoozeithimah4iaW";
+            let authorize_url = format!(
+                "https://github.com/login/oauth/authorize?client_id={}&redirect_uri={}&scope={}&state={}&allow_signup=false",
+                self.client_id,
+                self.redirect_url,
+                self.scopes.join("+"),
+                state
+            );
+
+            (authorize_url, state.to_string())
         }
     }
 }

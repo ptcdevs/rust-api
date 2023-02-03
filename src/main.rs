@@ -1,4 +1,5 @@
 mod github_oauth;
+mod new;
 
 use std::borrow::Borrow;
 use std::env;
@@ -58,9 +59,8 @@ async fn manual_hello() -> impl Responder {
 #[get("/login")]
 pub async fn login(github_oauth: web::Data<GithubOauthConfig>) -> actix_web::Result<impl Responder, Error> {
     let github_authorize = github_oauth.get_authorize_url();
-    //TODO: initialize github_oauth and retrieve this url from there
-    //TODO: save state
-    Ok(Redirect::to(github_authorize).using_status_code(StatusCode::FOUND))
+    //TODO: pass state to user session, then extract on /callback
+    Ok(Redirect::to(github_authorize.0).using_status_code(StatusCode::FOUND))
 }
 
 #[derive(Default, Debug, Serialize, Deserialize)]
@@ -70,7 +70,11 @@ struct AppConfig {
 
 #[derive(Default, Debug, Serialize, Deserialize)]
 struct GithubOauth {
+    app_name: String,
+    app_url: String,
     client_id: String,
+    redirect_url: String,
+    scopes: Vec<String>,
 }
 
 #[actix_web::main]
@@ -79,7 +83,7 @@ async fn main() -> Result<(), std::io::Error> {
     #[openapi(paths(hello, echo, manual_hello, login), components(schemas(RequestBlob, ResponseBlob)))]
     struct ApiDoc;
 
-    let config : Result<AppConfig, ConfyError> = confy::load_path("config/local/config.yaml");
+    let config: AppConfig = confy::load_path("config/local/config.yaml").expect("failure reading github creds");
     let github_secret = env::var("GITHUB_OAUTH_CLIENT_SECRET").expect("missing github client secret from environment variables");
 
     HttpServer::new(move || {
@@ -93,10 +97,10 @@ async fn main() -> Result<(), std::io::Error> {
             )
             .route("/hey", web::get().to(manual_hello))
             .app_data(web::Data::new(GithubOauthConfig {
-                client_id: "".to_string(),
+                client_id: config.github_oauth.client_id.to_string(),
                 client_secret: github_secret.clone(),
-                redirect_url: "".to_string(),
-                scopes: vec!["".to_string(), "".to_string()],
+                redirect_url: config.github_oauth.redirect_url.to_string(),
+                scopes: config.github_oauth.scopes.to_vec(),
             }))
     })
         .bind(("127.0.0.1", 8080))?
