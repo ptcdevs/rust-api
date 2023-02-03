@@ -8,21 +8,22 @@ pub mod github_oauth {
         pub client_id: String,
         pub client_secret: String,
         pub redirect_url: String,
-        pub scopes: String,
+        pub scopes: Vec<String>,
     }
 
-    pub static GLOBAL_DATA: once_cell::sync::Lazy<Mutex<GithubOauthConfig>> = once_cell::sync::Lazy::new(|| {
-        let mut config = GithubOauthConfig {
-            client_id: "".to_string(),
-            client_secret: "".to_string(),
-            redirect_url: "".to_string(),
-            scopes: "".to_string(),
-        };
+    impl GithubOauthConfig {
+        pub fn new(client_id: String, client_secret: String, redirect_url: String, scopes: Vec<String>) -> GithubOauthConfig {
+            GithubOauthConfig {
+                client_id: client_id,
+                client_secret: client_secret,
+                redirect_url: redirect_url,
+                scopes: scopes,
+            }
+        }
 
-        Mutex::new(config)
-    });
-
-    pub fn get_authorize_url(state: String) -> String {
-        "".to_string()
+        pub fn get_authorize_url(&self) -> String {
+            let authorizeUrl = "https://github.com/login/oauth/authorize?client_id=92e48c903bf0b3e8c4f3&redirect_uri=http%3A%2F%2Flocalhost%3A8080%2Fauth%2Fcallback&scope=user+repo&state=fo1Ooc1uofoozeithimah4iaW&allow_signup=false".to_string();
+            "".to_string()
+        }
     }
 }

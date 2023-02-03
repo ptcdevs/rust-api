@@ -1,5 +1,7 @@
 mod github_oauth;
 
+use std::borrow::Borrow;
+use std::env;
 use actix_web::cookie::Key;
 use actix_web::dev::JsonBody;
 use actix_web::middleware::ErrorHandlerResponse::Response;
@@ -9,7 +11,8 @@ use actix_web::web::Redirect;
 use reqwest::StatusCode;
 use utoipa::{OpenApi, ToSchema};
 use utoipa_swagger_ui::SwaggerUi;
-use crate::github_oauth::github_oauth::{GithubOauthConfig, login};
+use crate::github_oauth::github_oauth::GithubOauthConfig;
+use confy::{ConfyError, load_path};
 
 #[derive(ToSchema, Deserialize)]
 struct RequestBlob {
@@ -53,25 +56,33 @@ async fn manual_hello() -> impl Responder {
 (status = FOUND, description = "found"),
 (status = 5XX, description = "server error")))]
 #[get("/login")]
-pub async fn login() -> actix_web::Result<impl Responder, Error> {
-    let github_authorize = "https://github.com/login/oauth/authorize?client_id=92e48c903bf0b3e8c4f3&redirect_uri=http%3A%2F%2Flocalhost%3A8080%2Fauth%2Fcallback&scope=user+repo&state=fo1Ooc1uofoozeithimah4iaW&allow_signup=false".to_string();
+pub async fn login(github_oauth: web::Data<GithubOauthConfig>) -> actix_web::Result<impl Responder, Error> {
+    let github_authorize = github_oauth.get_authorize_url();
     //TODO: initialize github_oauth and retrieve this url from there
     //TODO: save state
     Ok(Redirect::to(github_authorize).using_status_code(StatusCode::FOUND))
 }
 
+#[derive(Default, Debug, Serialize, Deserialize)]
+struct AppConfig {
+    github_oauth: GithubOauth,
+}
+
+#[derive(Default, Debug, Serialize, Deserialize)]
+struct GithubOauth {
+    client_id: String,
+}
+
 #[actix_web::main]
-async fn main() -> std::io::Result<()> {
+async fn main() -> Result<(), std::io::Error> {
     #[derive(OpenApi)]
     #[openapi(paths(hello, echo, manual_hello, login), components(schemas(RequestBlob, ResponseBlob)))]
     struct ApiDoc;
 
-    //TODO: setup dependency injection using traits:
-    // https://medium.com/geekculture/dependency-injection-in-rust-3822bf689888
-    // https://jmmv.dev/2022/04/rust-traits-and-dependency-injection.html
-    // https://docs.rs/runtime_injector_actix/latest/runtime_injector_actix/ ***
+    let config : Result<AppConfig, ConfyError> = confy::load_path("config/local/config.yaml");
+    let github_secret = env::var("GITHUB_OAUTH_CLIENT_SECRET").expect("missing github client secret from environment variables");
 
-    HttpServer::new(|| {
+    HttpServer::new(move || {
         App::new()
             .service(hello)
             .service(echo)
@@ -81,6 +92,12 @@ async fn main() -> std::io::Result<()> {
                     .url("/api-doc/openapi.json", ApiDoc::openapi()),
             )
             .route("/hey", web::get().to(manual_hello))
+            .app_data(web::Data::new(GithubOauthConfig {
+                client_id: "".to_string(),
+                client_secret: github_secret.clone(),
+                redirect_url: "".to_string(),
+                scopes: vec!["".to_string(), "".to_string()],
+            }))
     })
         .bind(("127.0.0.1", 8080))?
         .run()
