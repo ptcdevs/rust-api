@@ -94,6 +94,12 @@ pub async fn callback(query: web::Query<CallbackParams>, session: Session, githu
         .ok_or_else(|| error::MyError::MissingStateError)?;
     let callback_params = query.into_inner();
 
+    //TODO: compare session state with query state
+    // if match, take code and make a request against github api for access tokens
+    // if no match, return new MyError::StateMismatch
+    // if access token fetch succeeds, save token to user cookie
+    // if access token fetch fails, return new MyError::TokenFetchFailure
+
     Ok(HttpResponse::Ok().body("callback success"))
 }
 
