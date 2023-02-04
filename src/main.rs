@@ -3,16 +3,16 @@ mod config;
 
 use std::borrow::Borrow;
 use std::env;
+use std::fmt::Formatter;
 use std::sync::Arc;
-use actix_session::{
-    config::PersistentSession, storage::CookieSessionStore, Session, SessionMiddleware,
-};
+use actix_session::{config::PersistentSession, storage::CookieSessionStore, Session, SessionMiddleware, SessionInsertError};
 use actix_session::config::SessionLifecycle::BrowserSession;
 use actix_session::config::{CookieContentSecurity, SessionMiddlewareBuilder, TtlExtensionPolicy};
 use actix_web::cookie::{self, Key};
 use actix_web::dev::JsonBody;
 use actix_web::middleware::ErrorHandlerResponse::Response;
 use actix_web::{App, error, Error, get, HttpRequest, HttpResponse, HttpServer, middleware::ErrorHandlerResponse, middleware::Logger, post, Responder, web};
+use actix_web::http::header::ContentType;
 use serde::{Deserialize, Serialize};
 use actix_web::web::Redirect;
 use reqwest::StatusCode;
@@ -20,8 +20,11 @@ use utoipa::{OpenApi, ToSchema};
 use utoipa_swagger_ui::SwaggerUi;
 use crate::github_oauth::github_oauth::{GithubOauthConfig, GithubOauthConfigBorrowed};
 use confy::{ConfyError, load_path};
+use futures::future::err;
 use config::AppConfig;
-use rand::{distributions::Alphanumeric, Rng}; // 0.8
+use rand::{distributions::Alphanumeric, Rng};
+// 0.8
+use derive_more::{Display, Error};
 
 #[derive(ToSchema, Deserialize)]
 struct RequestBlob {
@@ -67,10 +70,36 @@ async fn manual_hello() -> impl Responder {
 #[get("/login")]
 pub async fn login(session: Session, github_oauth: web::Data<GithubOauthConfig>) -> actix_web::Result<impl Responder, Error> {
     let github_authorize_url = github_oauth.get_authorize_url();
-    if let Ok(session_insert) = session.insert("state", github_authorize_url.1) {
-        Ok(Redirect::to(github_authorize_url.0).using_status_code(StatusCode::FOUND))
-    } else {
-        Err(error::ErrorInternalServerError("error saving github oauth state to cookie"))
+    let _ = session
+        .insert("state", github_authorize_url.1)
+        .or_else(|error: SessionInsertError| {
+            return Err(error::ErrorInternalServerError(error));
+        });
+
+    Ok(Redirect::to(github_authorize_url.0).using_status_code(StatusCode::FOUND))
+}
+
+#[derive(Debug, Display, Error)]
+enum MyError {
+    #[display(fmt = "session error")]
+    SessionError,
+
+    #[display(fmt = "missing state error")]
+    MissingStateError,
+}
+
+impl actix_web::ResponseError for MyError {
+    fn status_code(&self) -> StatusCode {
+        match *self {
+            MyError::SessionError => StatusCode::INTERNAL_SERVER_ERROR,
+            MyError::MissingStateError => StatusCode::BAD_REQUEST,
+        }
+    }
+
+    fn error_response(&self) -> HttpResponse {
+        HttpResponse::build(self.status_code())
+            .insert_header(ContentType::html())
+            .body(self.to_string())
     }
 }
 
@@ -79,11 +108,20 @@ pub async fn login(session: Session, github_oauth: web::Data<GithubOauthConfig>)
 (status = 5XX, description = "server error")))]
 #[get("/callback")]
 pub async fn callback(request: HttpRequest, session: Session, github_oauth: web::Data<GithubOauthConfig>) -> actix_web::Result<impl Responder, Error> {
-    //session.get::<String>("state")?
-    if let Some(state) = session.get::<String>("state")? {
-        Ok(HttpResponse::Ok().body("Hello world!"))
+    let state = session.get::<String>("stateff")
+        .or_else(|error| {
+            return Err(MyError::SessionError);
+        })
+        .unwrap()
+        .ok_or_else(|| { MyError::MissingStateError })
+        .or_else(|err| {
+            return Err(err);
+        });
+
+    if(state.is_ok()) {
+        return Ok(HttpResponse::Ok().body("Hello world!"))
     } else {
-        Err(error::ErrorInternalServerError(""))
+        return Err(Error::from(state.unwrap_err()));
     }
 }
 

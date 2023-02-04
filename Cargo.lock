@@ -1446,6 +1446,7 @@ dependencies = [
  "actix-session",
  "actix-web",
  "confy",
+ "derive_more",
  "env_logger",
  "futures",
  "log",
