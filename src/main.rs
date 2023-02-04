@@ -89,7 +89,7 @@ pub struct CallbackParams {
 (status = 5XX, description = "server error")))]
 #[get("/callback")]
 pub async fn callback(query: web::Query<CallbackParams>, session: Session, github_oauth: web::Data<GithubOauthConfig>) -> actix_web::Result<impl Responder, Error> {
-    let session_state = session.get::<String>("stateff")
+    let session_state = session.get::<String>("state")
         .unwrap_or_else(|_| None)
         .ok_or_else(|| error::MyError::MissingStateError)?;
     let callback_params = query.into_inner();
