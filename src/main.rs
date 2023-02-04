@@ -8,7 +8,7 @@ use actix_session::{
     config::PersistentSession, storage::CookieSessionStore, Session, SessionMiddleware,
 };
 use actix_session::config::SessionLifecycle::BrowserSession;
-use actix_session::config::{SessionMiddlewareBuilder, TtlExtensionPolicy};
+use actix_session::config::{CookieContentSecurity, SessionMiddlewareBuilder, TtlExtensionPolicy};
 use actix_web::cookie::{self, Key};
 use actix_web::dev::JsonBody;
 use actix_web::middleware::ErrorHandlerResponse::Response;
@@ -67,8 +67,11 @@ async fn manual_hello() -> impl Responder {
 #[get("/login")]
 pub async fn login(session: Session, github_oauth: web::Data<GithubOauthConfig>) -> actix_web::Result<impl Responder, Error> {
     let github_authorize_url = github_oauth.get_authorize_url();
-    let session_insert = session.insert("state", github_authorize_url.1)?;
-    Ok(Redirect::to(github_authorize_url.0).using_status_code(StatusCode::FOUND))
+    if let Ok(session_insert) = session.insert("state", github_authorize_url.1) {
+        Ok(Redirect::to(github_authorize_url.0).using_status_code(StatusCode::FOUND))
+    } else {
+        Err(error::ErrorInternalServerError("error saving github oauth state to cookie"))
+    }
 }
 
 #[utoipa::path(get, path = "/callback", responses(
@@ -76,8 +79,12 @@ pub async fn login(session: Session, github_oauth: web::Data<GithubOauthConfig>)
 (status = 5XX, description = "server error")))]
 #[get("/callback")]
 pub async fn callback(request: HttpRequest, session: Session, github_oauth: web::Data<GithubOauthConfig>) -> actix_web::Result<impl Responder, Error> {
-    let state: Option<String> = session.get("state")?;
-    Ok(HttpResponse::Ok().body("Hello world!"))
+    //session.get::<String>("state")?
+    if let Some(state) = session.get::<String>("state")? {
+        Ok(HttpResponse::Ok().body("Hello world!"))
+    } else {
+        Err(error::ErrorInternalServerError(""))
+    }
 }
 
 #[actix_web::main]
@@ -98,7 +105,7 @@ async fn main() -> Result<(), std::io::Error> {
 
         App::new()
             .wrap(
-                SessionMiddleware::builder(CookieSessionStore::default(), Key::from(&[0; 64]))
+                SessionMiddleware::builder(CookieSessionStore::default(), Key::from(&[0; 64])).cookie_content_security(CookieContentSecurity::Private)
                     .cookie_secure(false)
                     .session_lifecycle(PersistentSession::default().session_ttl(cookie::time::Duration::hours(2)))
                     .build())
