@@ -1,17 +1,19 @@
 mod github_oauth;
 mod config;
+mod error;
 
 use std::borrow::Borrow;
 use std::env;
 use std::fmt::Formatter;
 use std::sync::Arc;
-use actix_session::{config::PersistentSession, storage::CookieSessionStore, Session, SessionMiddleware, SessionInsertError};
+use actix_session::{config::PersistentSession, Session, SessionInsertError, SessionMiddleware, storage::CookieSessionStore};
 use actix_session::config::SessionLifecycle::BrowserSession;
 use actix_session::config::{CookieContentSecurity, SessionMiddlewareBuilder, TtlExtensionPolicy};
 use actix_web::cookie::{self, Key};
 use actix_web::dev::JsonBody;
 use actix_web::middleware::ErrorHandlerResponse::Response;
-use actix_web::{App, error, Error, get, HttpRequest, HttpResponse, HttpServer, middleware::ErrorHandlerResponse, middleware::Logger, post, Responder, web};
+use actix_web::{App, Error, get, HttpRequest, HttpResponse, HttpServer, middleware::ErrorHandlerResponse, middleware::Logger, post, Responder, web};
+use actix_web::error::ErrorInternalServerError;
 use actix_web::http::header::ContentType;
 use serde::{Deserialize, Serialize};
 use actix_web::web::Redirect;
@@ -24,7 +26,6 @@ use futures::future::err;
 use config::AppConfig;
 use rand::{distributions::Alphanumeric, Rng};
 // 0.8
-use derive_more::{Display, Error};
 
 #[derive(ToSchema, Deserialize)]
 struct RequestBlob {
@@ -73,34 +74,10 @@ pub async fn login(session: Session, github_oauth: web::Data<GithubOauthConfig>)
     let _ = session
         .insert("state", github_authorize_url.1)
         .or_else(|error: SessionInsertError| {
-            return Err(error::ErrorInternalServerError(error));
+            return Err(ErrorInternalServerError(error));
         });
 
     Ok(Redirect::to(github_authorize_url.0).using_status_code(StatusCode::FOUND))
-}
-
-#[derive(Debug, Display, Error)]
-enum MyError {
-    #[display(fmt = "session error")]
-    SessionError,
-
-    #[display(fmt = "missing state error")]
-    MissingStateError,
-}
-
-impl actix_web::ResponseError for MyError {
-    fn status_code(&self) -> StatusCode {
-        match *self {
-            MyError::SessionError => StatusCode::INTERNAL_SERVER_ERROR,
-            MyError::MissingStateError => StatusCode::BAD_REQUEST,
-        }
-    }
-
-    fn error_response(&self) -> HttpResponse {
-        HttpResponse::build(self.status_code())
-            .insert_header(ContentType::html())
-            .body(self.to_string())
-    }
 }
 
 #[utoipa::path(get, path = "/callback", responses(
@@ -108,12 +85,12 @@ impl actix_web::ResponseError for MyError {
 (status = 5XX, description = "server error")))]
 #[get("/callback")]
 pub async fn callback(request: HttpRequest, session: Session, github_oauth: web::Data<GithubOauthConfig>) -> actix_web::Result<impl Responder, Error> {
-    let state = session.get::<String>("stateff")
+    let state = session.get::<String>("state")
         .or_else(|error| {
-            return Err(MyError::SessionError);
+            return Err(error::MyError::SessionError);
         })
         .unwrap()
-        .ok_or_else(|| { MyError::MissingStateError })
+        .ok_or_else(|| { error::MyError::MissingStateError })
         .or_else(|err| {
             return Err(err);
         });
