@@ -71,35 +71,30 @@ async fn manual_hello() -> impl Responder {
 #[get("/login")]
 pub async fn login(session: Session, github_oauth: web::Data<GithubOauthConfig>) -> actix_web::Result<impl Responder, Error> {
     let github_authorize_url = github_oauth.get_authorize_url();
-    let _ = session
+    session
         .insert("state", github_authorize_url.1)
-        .or_else(|error: SessionInsertError| {
-            return Err(ErrorInternalServerError(error));
-        });
+        .map_err(|e|{ErrorInternalServerError(e)})?;
 
     Ok(Redirect::to(github_authorize_url.0).using_status_code(StatusCode::FOUND))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CallbackParams {
+    code: String,
+    state: String,
 }
 
 #[utoipa::path(get, path = "/callback", responses(
 (status = OK, description = "ok"),
 (status = 5XX, description = "server error")))]
 #[get("/callback")]
-pub async fn callback(request: HttpRequest, session: Session, github_oauth: web::Data<GithubOauthConfig>) -> actix_web::Result<impl Responder, Error> {
-    let state = session.get::<String>("state")
-        .or_else(|error| {
-            return Err(error::MyError::SessionError);
-        })
-        .unwrap()
-        .ok_or_else(|| { error::MyError::MissingStateError })
-        .or_else(|err| {
-            return Err(err);
-        });
+pub async fn callback(query: web::Query<CallbackParams>, session: Session, github_oauth: web::Data<GithubOauthConfig>) -> actix_web::Result<impl Responder, Error> {
+    let session_state = session.get::<String>("stateff")
+        .unwrap_or_else(|_| None)
+        .ok_or_else(|| error::MyError::MissingStateError)?;
+    let callback_params = query.into_inner();
 
-    if(state.is_ok()) {
-        return Ok(HttpResponse::Ok().body("Hello world!"))
-    } else {
-        return Err(Error::from(state.unwrap_err()));
-    }
+    Ok(HttpResponse::Ok().body("callback success"))
 }
 
 #[actix_web::main]
