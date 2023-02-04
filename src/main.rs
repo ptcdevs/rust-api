@@ -20,11 +20,12 @@ use actix_web::web::Redirect;
 use reqwest::StatusCode;
 use utoipa::{OpenApi, ToSchema};
 use utoipa_swagger_ui::SwaggerUi;
-use crate::github_oauth::github_oauth::{GithubOauthConfig, GithubOauthConfigBorrowed};
+use crate::github_oauth::github_oauth::{CallbackParams, GithubOauthConfig, GithubOauthConfigBorrowed};
 use confy::{ConfyError, load_path};
 use futures::future::err;
 use config::AppConfig;
 use rand::{distributions::Alphanumeric, Rng};
+use error::MyError::MissingStateError;
 // 0.8
 
 #[derive(ToSchema, Deserialize)]
@@ -78,12 +79,6 @@ pub async fn login(session: Session, github_oauth: web::Data<GithubOauthConfig>)
     Ok(Redirect::to(github_authorize_url.0).using_status_code(StatusCode::FOUND))
 }
 
-#[derive(Debug, Deserialize)]
-pub struct CallbackParams {
-    code: String,
-    state: String,
-}
-
 #[utoipa::path(get, path = "/callback", responses(
 (status = OK, description = "ok"),
 (status = 5XX, description = "server error")))]
@@ -91,8 +86,16 @@ pub struct CallbackParams {
 pub async fn callback(query: web::Query<CallbackParams>, session: Session, github_oauth: web::Data<GithubOauthConfig>) -> actix_web::Result<impl Responder, Error> {
     let session_state = session.get::<String>("state")
         .unwrap_or_else(|_| None)
-        .ok_or_else(|| error::MyError::MissingStateError)?;
+        .ok_or_else(|| MissingStateError)?;
     let callback_params = query.into_inner();
+    if session_state.eq(&callback_params.state) {
+        let access_token = github_oauth
+            .get_access_token(callback_params.code)
+            .await?;
+        println!("access token: {}", access_token);
+    } else {
+        return Err(Error::from(MissingStateError));
+    }
 
     //TODO: compare session state with query state
     // if match, take code and make a request against github api for access tokens

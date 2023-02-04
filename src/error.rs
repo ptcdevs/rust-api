@@ -8,8 +8,14 @@ pub enum MyError {
     #[display(fmt = "session error")]
     SessionError,
 
-    #[display(fmt = "missing state error")]
+    #[display(fmt = "state value missing or does not match session")]
     MissingStateError,
+
+    #[display(fmt = "error requesting access token")]
+    TokenRequestError,
+
+    #[display(fmt = "no access token returned")]
+    EmptyTokenError,
 }
 
 impl actix_web::ResponseError for MyError {
@@ -17,6 +23,8 @@ impl actix_web::ResponseError for MyError {
         match *self {
             MyError::SessionError => StatusCode::INTERNAL_SERVER_ERROR,
             MyError::MissingStateError => StatusCode::BAD_REQUEST,
+            MyError::TokenRequestError => StatusCode::BAD_REQUEST,
+            MyError::EmptyTokenError => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 
