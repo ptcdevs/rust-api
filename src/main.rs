@@ -88,14 +88,26 @@ pub async fn callback(query: web::Query<CallbackParams>, session: Session, githu
         .unwrap_or_else(|_| None)
         .ok_or_else(|| MissingStateError)?;
     let callback_params = query.into_inner();
-    if session_state.eq(&callback_params.state) {
-        let access_token = github_oauth
-            .get_access_token(callback_params.code)
-            .await?;
-        println!("access token: {}", access_token);
-    } else {
-        return Err(Error::from(MissingStateError));
-    }
+    // if session_state.eq(&callback_params.state) {
+    //     let access_token = github_oauth
+    //         .get_access_token(callback_params.code)
+    //         .await?;
+    //     println!("access token: {}", access_token);
+    // } else {
+    //     return Err(Error::from(MissingStateError));
+    // }
+    session_state.eq(&callback_params.state)
+        .then(|| async {
+            let access_token = github_oauth
+                .get_access_token(callback_params.code)
+                .await
+                .unwrap_or_else(|err| {
+                    format!("access token: {}", err.to_string())
+                });
+            println!("access token: {}", access_token);
+            access_token
+        })
+        .or_else(|| None);
 
     //TODO: compare session state with query state
     // if match, take code and make a request against github api for access tokens

@@ -3,7 +3,9 @@ pub mod github_oauth {
     use actix_web::{Error, get, http::StatusCode, Responder, web::Redirect};
     use utoipa::ToSchema;
     use std::{collections::HashMap, sync::Mutex};
+    use std::borrow::{Borrow, Cow};
     use std::os::linux::raw::stat;
+    use std::string::FromUtf8Error;
     use once_cell::sync::Lazy;
     use crate::error::MyError;
     use crate::error::MyError::{EmptyTokenError, MissingStateError, SessionError, TokenRequestError};
@@ -67,7 +69,7 @@ pub mod github_oauth {
         pub scopes: &'a Vec<String>,
     }
 
-    impl<a> GithubOauthConfigBorrowed<'a> {
+    impl<'a> GithubOauthConfigBorrowed<'a> {
         pub fn get_authorize_url(&self) -> (String, String) {
             let state = "fo1Ooc1uofoozeithimah4iaW";
             let authorize_url = format!(
@@ -97,8 +99,9 @@ pub mod github_oauth {
     }
 
     impl AccessTokenResponse {
-        pub fn get_scopes(&self) -> Result<Vec<String>,Error> {
-            urlencoding::decode(self.scope.to_string())
+        pub fn get_scopes<'a>(&'a self) -> Result<Cow<'a, str>, FromUtf8Error> {
+            let decoded_scopes = urlencoding::decode(self.scope.borrow());
+            decoded_scopes
         }
     }
 }
