@@ -12,7 +12,10 @@ pub enum MyError {
     MissingStateError,
 
     #[display(fmt = "error requesting access token")]
-    TokenRequestError,
+    TokenResponseError,
+
+    #[display(fmt = "error extracting access token from response body")]
+    TokenResponseBodyError,
 
     #[display(fmt = "no access token returned")]
     EmptyTokenError,
@@ -21,9 +24,10 @@ pub enum MyError {
 impl actix_web::ResponseError for MyError {
     fn status_code(&self) -> StatusCode {
         match *self {
-            MyError::SessionError => StatusCode::INTERNAL_SERVER_ERROR,
+            MyError::SessionError => StatusCode::BAD_REQUEST,
             MyError::MissingStateError => StatusCode::BAD_REQUEST,
-            MyError::TokenRequestError => StatusCode::BAD_REQUEST,
+            MyError::TokenResponseError => StatusCode::INTERNAL_SERVER_ERROR,
+            MyError::TokenResponseBodyError => StatusCode::INTERNAL_SERVER_ERROR,
             MyError::EmptyTokenError => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }

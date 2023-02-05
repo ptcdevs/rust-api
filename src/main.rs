@@ -21,7 +21,7 @@ use actix_web::web::Redirect;
 use reqwest::StatusCode;
 use utoipa::{OpenApi, ToSchema};
 use utoipa_swagger_ui::SwaggerUi;
-use crate::github_oauth::github_oauth::{CallbackParams, GithubOauthConfig};
+use crate::github_oauth::github_oauth::{CallbackParams, GithubOauthConfig, GithubOauthFunctions};
 use confy::{ConfyError, load_path};
 use futures::future::err;
 use config::AppConfig;
@@ -71,8 +71,10 @@ async fn manual_hello() -> impl Responder {
 (status = FOUND, description = "found"),
 (status = 5XX, description = "server error")))]
 #[get("/login")]
-pub async fn login(session: Session, github_oauth: web::Data<GithubOauthConfig>) -> actix_web::Result<impl Responder, Error> {
-    let github_authorize_url = github_oauth.get_authorize_url();
+pub async fn login(session: Session, github_oauth: web::Data<dyn GithubOauthFunctions>) -> actix_web::Result<impl Responder, Error> {
+    let github_authorize_url = github_oauth
+        .into_inner()
+        .get_authorize_url();
     session
         .insert("state", github_authorize_url.1)
         .map_err(|e| { ErrorInternalServerError(e) })?;
@@ -84,16 +86,17 @@ pub async fn login(session: Session, github_oauth: web::Data<GithubOauthConfig>)
 (status = OK, description = "ok"),
 (status = 5XX, description = "server error")))]
 #[get("/callback")]
-pub async fn callback(query: web::Query<CallbackParams>, session: Session, github_oauth: web::Data<GithubOauthConfig>) -> actix_web::Result<impl Responder, Error> {
+pub async fn callback(query: web::Query<CallbackParams>, session: Session, github_oauth: web::Data<dyn GithubOauthFunctions>) -> actix_web::Result<impl Responder, Error> {
     let session_state = session.get::<String>("state")
         .unwrap_or_else(|_| None)
         .ok_or_else(|| MissingStateError)?;
     let callback_params = query.into_inner();
     let access_token = if session_state.eq(&callback_params.state) {
         let access_token = github_oauth
+            .into_inner()
             .get_access_token(callback_params.code)
             .await?;
-        println!("access token: {}", access_token.access_token);
+        println!("access token: {}", access_token);
         Some(access_token)
     } else {
         None
@@ -122,6 +125,9 @@ async fn main() -> Result<(), std::io::Error> {
             redirect_url: config.github_oauth.redirect_url,
             scopes: config.github_oauth.scopes,
         };
+        let arc_github_config: Arc<dyn GithubOauthFunctions> = Arc::new(github_config);
+        //let github_config_data = web::Data::new(github_config);
+        let github_config_data: web::Data<dyn GithubOauthFunctions> = web::Data::from(arc_github_config);
 
         App::new()
             .wrap(
@@ -138,7 +144,7 @@ async fn main() -> Result<(), std::io::Error> {
                     .url("/api-doc/openapi.json", ApiDoc::openapi()),
             )
             .route("/hey", web::get().to(manual_hello))
-            .app_data(web::Data::new(github_config))
+            .app_data(github_config_data)
     })
         .bind(("127.0.0.1", 8080))?
         .run()

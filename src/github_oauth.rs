@@ -8,10 +8,11 @@ pub mod github_oauth {
     use std::string::FromUtf8Error;
     use once_cell::sync::Lazy;
     use crate::error::MyError;
-    use crate::error::MyError::{EmptyTokenError, MissingStateError, SessionError, TokenRequestError};
+    use crate::error::MyError::{EmptyTokenError, MissingStateError, SessionError, TokenResponseError, TokenResponseBodyError};
     use reqwest::Client;
     use serde::Deserialize;
     use urlencoding::decode;
+    use async_trait::async_trait;
 
     #[derive(Clone)]
     pub struct GithubOauthConfig {
@@ -21,8 +22,9 @@ pub mod github_oauth {
         pub scopes: Vec<String>,
     }
 
-    impl GithubOauthConfig {
-        pub fn get_authorize_url(&self) -> (String, String) {
+    #[async_trait]
+    impl GithubOauthFunctions for GithubOauthConfig {
+        fn get_authorize_url(&self) -> (String, String) {
             let state = "fo1Ooc1uofoozeithimah4iaW";
             let authorize_url = format!(
                 "https://github.com/login/oauth/authorize?client_id={}&redirect_uri={}&scope={}&state={}&allow_signup=false",
@@ -33,13 +35,7 @@ pub mod github_oauth {
 
             (authorize_url, state.to_string())
         }
-
-        // POST https://github.com/login/oauth/access_token
-        // Content-Type: application/x-www-form-urlencoded
-        //
-        // client_id=92e48c903bf0b3e8c4f3&client_secret={{GITHUB_OAUTH_CLIENT_SECRET}}&code=3ce16bbcfff7a152295d&redirect_uri=http://localhost:8080/auth/callback
-        // returns access token: access_token=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&scope=repo%2Cuser&token_type=bearer
-        pub async fn get_access_token<'a>(&'a self, code: String) -> Result<AccessTokenResponse, MyError> {
+        async fn get_access_token<'a>(&'a self, code: String) -> Result<String, MyError> {
             let token_url = "https://github.com/login/oauth/access_token";
             let token_request_body = format!(
                 "client_id={}&client_secret={}&code={}&redirect_uri={}",
@@ -48,25 +44,29 @@ pub mod github_oauth {
                 code,
                 self.redirect_url);
 
-            let client = reqwest::Client::new();
-            let response = client.post(token_url)
+            let response = Client::new()
+                .post(token_url)
                 .body(token_request_body)
                 .send()
                 .await
-                .map_err(|err| TokenRequestError)?;
+                .map_err(|err| TokenResponseError)?;
+            let response_status = response
+                .status()
+                .is_success();
             let response_body = response
                 .text()
                 .await
-                .map_err(|err| TokenRequestError)?;
-            let split_body = response_body
-                .split('&');
+                .map_err(|err| TokenResponseBodyError)?;
 
-            Ok(AccessTokenResponse {
-                token_type: "",
-                access_token: "",
-                scope: ""
-            })
+            Ok(response_body)
         }
+    }
+
+    #[async_trait]
+    pub trait GithubOauthFunctions {
+        // fn new<'a>(client_id: &'a str, client_secret: &'a str, redirect_url: &'a str, scopes: &'a str) -> impl GithubOauthFunctions;
+        fn get_authorize_url(&self) -> (String, String);
+        async fn get_access_token<'a>(&'a self, code: String) -> Result<String, MyError>;
     }
 
     #[derive(Debug, Deserialize)]
@@ -75,7 +75,6 @@ pub mod github_oauth {
         pub state: String,
     }
 
-    //access_token=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&scope=repo%2Cuser&token_type=bearer
     #[derive(Debug, Deserialize)]
     pub struct AccessTokenResponse<'a> {
         pub access_token: &'a str,
