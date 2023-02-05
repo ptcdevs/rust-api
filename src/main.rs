@@ -74,7 +74,7 @@ pub async fn login(session: Session, github_oauth: web::Data<GithubOauthConfig>)
     let github_authorize_url = github_oauth.get_authorize_url();
     session
         .insert("state", github_authorize_url.1)
-        .map_err(|e|{ErrorInternalServerError(e)})?;
+        .map_err(|e| { ErrorInternalServerError(e) })?;
 
     Ok(Redirect::to(github_authorize_url.0).using_status_code(StatusCode::FOUND))
 }
@@ -88,26 +88,15 @@ pub async fn callback(query: web::Query<CallbackParams>, session: Session, githu
         .unwrap_or_else(|_| None)
         .ok_or_else(|| MissingStateError)?;
     let callback_params = query.into_inner();
-    // if session_state.eq(&callback_params.state) {
-    //     let access_token = github_oauth
-    //         .get_access_token(callback_params.code)
-    //         .await?;
-    //     println!("access token: {}", access_token);
-    // } else {
-    //     return Err(Error::from(MissingStateError));
-    // }
-    session_state.eq(&callback_params.state)
-        .then(|| async {
-            let access_token = github_oauth
-                .get_access_token(callback_params.code)
-                .await
-                .unwrap_or_else(|err| {
-                    format!("access token: {}", err.to_string())
-                });
-            println!("access token: {}", access_token);
-            access_token
-        })
-        .or_else(|| None);
+    let access_token = if session_state.eq(&callback_params.state) {
+        let access_token = github_oauth
+            .get_access_token(callback_params.code)
+            .await?;
+        println!("access token: {}", access_token);
+        Some(access_token)
+    } else {
+        None
+    };
 
     //TODO: compare session state with query state
     // if match, take code and make a request against github api for access tokens
