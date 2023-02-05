@@ -1,6 +1,7 @@
 mod github_oauth;
 mod config;
 mod error;
+mod github_oauth_tests;
 
 use std::borrow::Borrow;
 use std::env;
@@ -20,7 +21,7 @@ use actix_web::web::Redirect;
 use reqwest::StatusCode;
 use utoipa::{OpenApi, ToSchema};
 use utoipa_swagger_ui::SwaggerUi;
-use crate::github_oauth::github_oauth::{CallbackParams, GithubOauthConfig, GithubOauthConfigBorrowed};
+use crate::github_oauth::github_oauth::{CallbackParams, GithubOauthConfig};
 use confy::{ConfyError, load_path};
 use futures::future::err;
 use config::AppConfig;
@@ -92,17 +93,16 @@ pub async fn callback(query: web::Query<CallbackParams>, session: Session, githu
         let access_token = github_oauth
             .get_access_token(callback_params.code)
             .await?;
-        println!("access token: {}", access_token);
+        println!("access token: {}", access_token.access_token);
         Some(access_token)
     } else {
         None
     };
-
-    //TODO: compare session state with query state
-    // if match, take code and make a request against github api for access tokens
-    // if no match, return new MyError::StateMismatch
-    // if access token fetch succeeds, save token to user cookie
-    // if access token fetch fails, return new MyError::TokenFetchFailure
+    //TODO: match scopes
+    //TODO: save token to cookie
+    // session
+    //     .insert("state", github_authorize_url.1)
+    //     .map_err(|e| { ErrorInternalServerError(e) })?;
 
     Ok(HttpResponse::Ok().body("callback success"))
 }

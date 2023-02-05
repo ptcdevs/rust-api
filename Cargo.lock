@@ -1445,6 +1445,7 @@ version = "0.2.0"
 dependencies = [
  "actix-session",
  "actix-web",
+ "async-trait",
  "confy",
  "derive_more",
  "env_logger",

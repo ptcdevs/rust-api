@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 actix-session = { version = "0.7.2", features = ["cookie-session"] }
 actix-web = "4"
+async-trait = "0.1.64"
 confy = { version = "0.5.1", features = ["yaml_conf"], default-features = false }
 derive_more = "0.99.17"
 env_logger = "0.10.0"
