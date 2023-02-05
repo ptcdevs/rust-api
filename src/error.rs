@@ -3,7 +3,7 @@ use actix_web::http::StatusCode;
 use actix_web::HttpResponse;
 use derive_more::{Display, Error};
 
-#[derive(Debug, Display, Error)]
+#[derive(Debug, Display, Error, Clone)]
 pub enum MyError {
     #[display(fmt = "session error")]
     SessionError,

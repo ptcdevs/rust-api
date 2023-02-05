@@ -1,62 +1,51 @@
 #[cfg(test)]
 mod tests {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+    use std::sync::Arc;
+    use actix_session::{Session, SessionExt};
+    use actix_web::{test, web};
     use async_trait::async_trait;
-    use reqwest::Client;
+    use reqwest::{Client, get};
+    use crate::callback;
     use crate::error::MyError;
     use crate::error::MyError::{TokenResponseBodyError, TokenResponseError};
     use crate::github_oauth::github_oauth::GithubOauthFunctions;
+    use super::*;
+
     // Note this useful idiom: importing names from outer (for mod tests) scope.
 
-    #[derive(Clone)]
     pub struct GithubOauthConfigMock {
-        pub client_id: String,
-        pub client_secret: String,
-        pub redirect_url: String,
-        pub scopes: Vec<String>,
+        pub get_access_token_error: MyError
     }
 
     #[async_trait]
     impl GithubOauthFunctions for GithubOauthConfigMock {
         fn get_authorize_url(&self) -> (String, String) {
-            let state = "fo1Ooc1uofoozeithimah4iaW";
-            let authorize_url = format!(
-                "https://github.com/login/oauth/authorize?client_id={}&redirect_uri={}&scope={}&state={}&allow_signup=false",
-                self.client_id,
-                self.redirect_url,
-                self.scopes.join("+"),
-                state);
-
-            (authorize_url, state.to_string())
+            ("".to_string(), "".to_string())
         }
         async fn get_access_token<'a>(&'a self, code: String) -> Result<String, MyError> {
-            let token_url = "https://github.com/login/oauth/access_token";
-            let token_request_body = format!(
-                "client_id={}&client_secret={}&code={}&redirect_uri={}",
-                self.client_id,
-                self.client_secret,
-                code,
-                self.redirect_url);
-
-            let response = Client::new()
-                .post(token_url)
-                .body(token_request_body)
-                .send()
-                .await
-                .map_err(|err| TokenResponseError)?;
-            let response_status = response
-                .status()
-                .is_success();
-            let response_body = response
-                .text()
-                .await
-                .map_err(|err| TokenResponseBodyError)?;
-
-            Ok(response_body)
+            Err(self.get_access_token_error.clone())
         }
     }
 
     #[test]
-    fn test_add() {
+    async fn test_add() {
+        let query = web::Query::from_query("code=6f654b9ee57fd13b7b88&state=fo1Ooc1uofoozeithimah4iaW")
+            .unwrap();
+        let request = test::TestRequest::default()
+            .to_http_request();
+        let session = request.get_session();
+        session.insert("state","fo1Ooc1uofoozeithimah4iaW");
+        let github_config = GithubOauthConfigMock {
+            get_access_token_error: MyError::TokenResponseError
+        };
+        let github_config_arc: Arc<dyn GithubOauthFunctions> = Arc::new(github_config);
+        let github_config_data: web::Data<dyn GithubOauthFunctions> = web::Data::from(github_config_arc);
+
+        let result = callback(query, session, github_config_data)
+            .await;
+
         assert_eq!(true, true);
     }
 }

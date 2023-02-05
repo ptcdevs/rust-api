@@ -23,6 +23,12 @@ pub mod github_oauth {
     }
 
     #[async_trait]
+    pub trait GithubOauthFunctions {
+        fn get_authorize_url(&self) -> (String, String);
+        async fn get_access_token<'a>(&'a self, code: String) -> Result<String, MyError>;
+    }
+
+    #[async_trait]
     impl GithubOauthFunctions for GithubOauthConfig {
         fn get_authorize_url(&self) -> (String, String) {
             let state = "fo1Ooc1uofoozeithimah4iaW";
@@ -60,13 +66,6 @@ pub mod github_oauth {
 
             Ok(response_body)
         }
-    }
-
-    #[async_trait]
-    pub trait GithubOauthFunctions {
-        // fn new<'a>(client_id: &'a str, client_secret: &'a str, redirect_url: &'a str, scopes: &'a str) -> impl GithubOauthFunctions;
-        fn get_authorize_url(&self) -> (String, String);
-        async fn get_access_token<'a>(&'a self, code: String) -> Result<String, MyError>;
     }
 
     #[derive(Debug, Deserialize)]
