@@ -50,6 +50,7 @@ pub mod github_oauth {
                 code,
                 self.redirect_url);
 
+            //TODO: extract this to trait function for testing
             let response = Client::new()
                 .post(token_url)
                 .body(token_request_body)

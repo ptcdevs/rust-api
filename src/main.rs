@@ -1,7 +1,9 @@
 mod github_oauth;
 mod config;
 mod error;
-mod github_oauth_tests;
+mod endpoints;
+mod hello_world;
+mod tests;
 
 use std::borrow::Borrow;
 use std::env;
@@ -27,45 +29,6 @@ use futures::future::err;
 use config::AppConfig;
 use rand::{distributions::Alphanumeric, Rng};
 use error::MyError::MissingStateError;
-// 0.8
-
-#[derive(ToSchema, Deserialize)]
-struct RequestBlob {
-    id: u64,
-    value: String,
-}
-
-#[derive(ToSchema, Serialize)]
-struct ResponseBlob {
-    id: u64,
-    value: String,
-}
-
-#[utoipa::path(get, path = "/",
-responses((status = 200, description = "ok", content_type = "text/plain" ),
-(status = NOT_FOUND, description = "not found!")))]
-#[get("/")]
-pub async fn hello() -> impl Responder {
-    HttpResponse::Ok().body("Hello world!")
-}
-
-#[utoipa::path(post, path = "/echo", request_body = RequestBlob, responses(
-(status = 200, description = "request blob received", body = ResponseBlob, content_type = "application/json"),
-(status = "5XX", description = "server error")))]
-#[post("/echo")]
-async fn echo(hello_blob: web::Json<RequestBlob>) -> actix_web::Result<impl Responder> {
-    let response_blob = ResponseBlob {
-        id: hello_blob.id,
-        value: hello_blob.value.to_string(),
-    };
-    Ok(web::Json(response_blob))
-}
-
-#[utoipa::path(get, path = "/hey", responses(
-(status = 200, description = "ok"), (status = NOT_FOUND, description = "not found!")))]
-async fn manual_hello() -> impl Responder {
-    HttpResponse::Ok().body("Hey there!")
-}
 
 #[utoipa::path(get, path = "/login", responses(
 (status = FOUND, description = "found"),
@@ -110,11 +73,16 @@ pub async fn callback(query: web::Query<CallbackParams>, session: Session, githu
     Ok(HttpResponse::Ok().body("callback success"))
 }
 
+
 #[actix_web::main]
 async fn main() -> Result<(), std::io::Error> {
     #[derive(OpenApi)]
-    #[openapi(paths(hello, echo, manual_hello, login, callback), components(schemas(RequestBlob, ResponseBlob)))]
-    struct ApiDoc;
+    #[openapi(paths(hello_world::hello, hello_world::echo, hello_world::manual_hello), components(schemas(hello_world::RequestBlob, hello_world::ResponseBlob)))]
+    struct HelloWorld;
+
+    #[derive(OpenApi)]
+    #[openapi(paths(login, callback))]
+    struct RestApi;
 
     HttpServer::new(|| {
         let config: AppConfig = confy::load_path("config/local/config.yaml").expect("failure reading github creds");
@@ -135,15 +103,15 @@ async fn main() -> Result<(), std::io::Error> {
                     .cookie_secure(false)
                     .session_lifecycle(PersistentSession::default().session_ttl(cookie::time::Duration::hours(2)))
                     .build())
-            .service(hello)
-            .service(echo)
+            .service( hello_world::hello)
+            .service(hello_world::echo)
+            .route("/hey", web::get().to(hello_world::manual_hello))
             .service(login)
             .service(callback)
             .service(
                 SwaggerUi::new("/swagger-ui/{_:.*}")
-                    .url("/api-doc/openapi.json", ApiDoc::openapi()),
+                    .url("/api-doc/openapi.json", HelloWorld::openapi()),
             )
-            .route("/hey", web::get().to(manual_hello))
             .app_data(github_config_data)
     })
         .bind(("127.0.0.1", 8080))?
