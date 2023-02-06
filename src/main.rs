@@ -68,7 +68,6 @@ pub async fn callback(query: web::Query<CallbackParams>, session: Session, githu
         .ok_or_else(|| EmptyTokenError)?;
     session.remove("state");
     //TODO: match scopes
-    //TODO: save token to cookie
     session
         .insert("access_token", access_token.clone())
         .map_err(|e| { ErrorInternalServerError(e) })?;
