@@ -1,4 +1,3 @@
-
 pub mod github_oauth {
     use actix_web::{Error, get, http::StatusCode, Responder, web::Redirect};
     use utoipa::ToSchema;
@@ -9,7 +8,7 @@ pub mod github_oauth {
     use once_cell::sync::Lazy;
     use crate::error::MyError;
     use crate::error::MyError::{EmptyTokenError, MissingStateError, SessionError, TokenResponseError, TokenResponseBodyError};
-    use reqwest::Client;
+    use reqwest::{Client, Response};
     use serde::Deserialize;
     use urlencoding::decode;
     use async_trait::async_trait;
@@ -20,6 +19,7 @@ pub mod github_oauth {
         pub client_secret: String,
         pub redirect_url: String,
         pub scopes: Vec<String>,
+        pub client: Client,
     }
 
     #[async_trait]
@@ -79,10 +79,10 @@ pub mod github_oauth {
     pub struct AccessTokenResponse<'a> {
         pub access_token: &'a str,
         pub scope: &'a str,
-        pub token_type: &'a str
+        pub token_type: &'a str,
     }
 
-    impl <'a> AccessTokenResponse<'a> {
+    impl<'a> AccessTokenResponse<'a> {
         pub fn get_scopes(&'a self) -> Result<Cow<'a, str>, FromUtf8Error> {
             let decoded_scopes = urlencoding::decode(self.scope.borrow());
             decoded_scopes

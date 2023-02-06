@@ -29,6 +29,7 @@ use futures::future::err;
 use config::AppConfig;
 use rand::{distributions::Alphanumeric, Rng};
 use error::MyError::MissingStateError;
+use crate::error::MyError::EmptyTokenError;
 
 #[utoipa::path(get, path = "/login", responses(
 (status = FOUND, description = "found"),
@@ -55,22 +56,24 @@ pub async fn callback(query: web::Query<CallbackParams>, session: Session, githu
         .ok_or_else(|| MissingStateError)?;
     let callback_params = query.into_inner();
     let access_token = if session_state.eq(&callback_params.state) {
+        //TODO: parse access token response and return struct
         let access_token = github_oauth
             .into_inner()
             .get_access_token(callback_params.code)
             .await?;
-        println!("access token: {}", access_token);
         Some(access_token)
     } else {
         None
-    };
+    }
+        .ok_or_else(|| EmptyTokenError)?;
+    session.remove("state");
     //TODO: match scopes
     //TODO: save token to cookie
-    // session
-    //     .insert("state", github_authorize_url.1)
-    //     .map_err(|e| { ErrorInternalServerError(e) })?;
+    session
+        .insert("access_token", access_token.clone())
+        .map_err(|e| { ErrorInternalServerError(e) })?;
 
-    Ok(HttpResponse::Ok().body("callback success"))
+    Ok(HttpResponse::Ok().body(format!("success; access token: {}", access_token)))
 }
 
 
@@ -92,6 +95,7 @@ async fn main() -> Result<(), std::io::Error> {
             client_secret: github_secret,
             redirect_url: config.github_oauth.redirect_url,
             scopes: config.github_oauth.scopes,
+            client: reqwest::Client::new(),
         };
         let arc_github_config: Arc<dyn GithubOauthFunctions> = Arc::new(github_config);
         //let github_config_data = web::Data::new(github_config);
@@ -103,7 +107,7 @@ async fn main() -> Result<(), std::io::Error> {
                     .cookie_secure(false)
                     .session_lifecycle(PersistentSession::default().session_ttl(cookie::time::Duration::hours(2)))
                     .build())
-            .service( hello_world::hello)
+            .service(hello_world::hello)
             .service(hello_world::echo)
             .route("/hey", web::get().to(hello_world::manual_hello))
             .service(login)

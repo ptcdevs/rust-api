@@ -66,14 +66,11 @@ mod tests {
         let redirect_url = login_response
             .headers()
             .into_iter()
-            //.map(|header| (header.0.to_string(),header.1.to_str().unwrap().to_string()))
-            //.map(|header| (header.0.to_string(),header.1.to_str().unwrap().to_string())) .collect::<Vec<(String,String)>>()
-            .map(|header| (header.1.to_str().unwrap().to_string())) .collect::<Vec<(String)>>()
-            ;
-        // let login_body_text = str::from_utf8(login_body.borrow());
+            .map(|header|
+                (header.1.to_str().unwrap().to_string())) .collect::<Vec<(String)>>();
 
         let callback_request = test::TestRequest::get()
-            .uri("/callback?code=6f654b9ee57fd13b7b88&state=fo1Ooc1uofoozeithimah4iaW")
+            .uri(format!("/callback?code=6f654b9ee57fd13b7b88&state={}", state).as_str())
             .to_request();
         let callback_response = test::call_service(&app, callback_request).await;
         let callback_body = callback_response
