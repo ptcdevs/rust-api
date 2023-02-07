@@ -16,28 +16,25 @@ pub mod client {
 
     impl GithubClient {
         pub fn new(access_token_response: &str) {
-            let elements: Vec<Result<(String,String),MyError>> = access_token_response
+            // eg: access_token=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&scope=repo%2Cuser&token_type=bearer
+            let elements = access_token_response
                 .split("&")
                 .map(|elems| {
                     let mut elem_split = elems
                         .split("=");
                     let key = elem_split
                         .next()
-                        .ok_or_else(|| MyError::TokenResponseParseError)?
-                        .to_string();
+                        .ok_or_else(|| MyError::TokenResponseParseError)?;
                     let value = elem_split
                         .next()
-                        .ok_or(MyError::TokenResponseParseError)?
-                        .to_string();
+                        .ok_or(MyError::TokenResponseParseError)?;
 
                     Ok((key,value))
-                })
-                .collect();
+                });
             let kv_pair = elements
-                .into_iter()
                 .filter(|kv| kv.is_ok())
-                .map(|kv| kv.unwrap());
-            let parsed: HashMap<String,String> = HashMap::from_iter(kv_pair);
+                .map(|kv: Result<(&str,&str),MyError>| kv.unwrap());
+            let parsed: HashMap<&str,&str> = HashMap::from_iter(kv_pair);
             todo!()
         }
     }

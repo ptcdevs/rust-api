@@ -15,9 +15,7 @@ use actix_web::web::Redirect;
 use reqwest::StatusCode;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
-use crate::github_api::config::config::CallbackParams;
-use crate::github_api::config::config::GithubConfig;
-use crate::github_api::config::config::GithubOauthFunctions;
+use crate::github_api::config::config::{CallbackParams,GithubConfig,GithubOauthFunctions};
 use config::AppConfig;
 use error::MyError::MissingStateError;
 use crate::error::MyError::EmptyTokenError;
@@ -46,7 +44,7 @@ pub async fn callback(query: web::Query<CallbackParams>, session: Session, githu
         .unwrap_or_else(|_| None)
         .ok_or_else(|| MissingStateError)?;
     let callback_params = query.into_inner();
-    let client = if session_state.eq(&callback_params.state) {
+    let client = if !session_state.is_empty() && session_state.eq(&callback_params.state) {
         //TODO: parse access token response and return struct
         let client = github_oauth
             .into_inner()
