@@ -14,8 +14,11 @@ pub enum MyError {
     #[display(fmt = "error requesting access token")]
     TokenResponseError,
 
-    #[display(fmt = "error extracting access token from response body")]
+    #[display(fmt = "error extracting access token response body")]
     TokenResponseBodyError,
+
+    #[display(fmt = "error parsing access token from response body")]
+    TokenResponseParseError,
 
     #[display(fmt = "no access token returned")]
     EmptyTokenError,
@@ -28,6 +31,7 @@ impl actix_web::ResponseError for MyError {
             MyError::MissingStateError => StatusCode::BAD_REQUEST,
             MyError::TokenResponseError => StatusCode::INTERNAL_SERVER_ERROR,
             MyError::TokenResponseBodyError => StatusCode::INTERNAL_SERVER_ERROR,
+            MyError::TokenResponseParseError => StatusCode::INTERNAL_SERVER_ERROR,
             MyError::EmptyTokenError => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
