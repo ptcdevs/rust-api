@@ -1,7 +1,6 @@
-mod github_oauth;
+mod github_api;
 mod config;
 mod error;
-mod endpoints;
 mod hello_world;
 mod tests;
 
@@ -16,7 +15,9 @@ use actix_web::web::Redirect;
 use reqwest::StatusCode;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
-use crate::github_oauth::github_oauth::{CallbackParams, GithubOauthConfig, GithubOauthFunctions};
+use crate::github_api::config::config::CallbackParams;
+use crate::github_api::config::config::GithubConfig;
+use crate::github_api::config::config::GithubOauthFunctions;
 use config::AppConfig;
 use error::MyError::MissingStateError;
 use crate::error::MyError::EmptyTokenError;
@@ -45,13 +46,13 @@ pub async fn callback(query: web::Query<CallbackParams>, session: Session, githu
         .unwrap_or_else(|_| None)
         .ok_or_else(|| MissingStateError)?;
     let callback_params = query.into_inner();
-    let access_token = if session_state.eq(&callback_params.state) {
+    let client = if session_state.eq(&callback_params.state) {
         //TODO: parse access token response and return struct
-        let access_token = github_oauth
+        let client = github_oauth
             .into_inner()
-            .get_access_token(callback_params.code)
+            .get_client(callback_params.code)
             .await?;
-        Some(access_token)
+        Some(client)
     } else {
         None
     }
@@ -59,10 +60,10 @@ pub async fn callback(query: web::Query<CallbackParams>, session: Session, githu
     session.remove("state");
     //TODO: match scopes
     session
-        .insert("access_token", access_token.clone())
+        .insert("access_token", client.access_token.clone())
         .map_err(|e| { ErrorInternalServerError(e) })?;
 
-    Ok(HttpResponse::Ok().body(format!("success; access token: {}", access_token)))
+    Ok(HttpResponse::Ok().body(format!("success; access token: {}", client.access_token)))
 }
 
 
@@ -79,15 +80,14 @@ async fn main() -> Result<(), std::io::Error> {
     HttpServer::new(|| {
         let config: AppConfig = confy::load_path("config/local/config.yaml").expect("failure reading github creds");
         let github_secret = env::var("GITHUB_OAUTH_CLIENT_SECRET").expect("missing github client secret from environment variables");
-        let github_config = GithubOauthConfig {
+        let github_config = GithubConfig {
             client_id: config.github_oauth.client_id,
             client_secret: github_secret,
             redirect_url: config.github_oauth.redirect_url,
             scopes: config.github_oauth.scopes,
-            client: reqwest::Client::new(),
         };
         let arc_github_config: Arc<dyn GithubOauthFunctions> = Arc::new(github_config);
-        //let github_config_data = web::Data::new(github_config);
+        //let github_config_data = web::Data::new(github_api);
         let github_config_data: web::Data<dyn GithubOauthFunctions> = web::Data::from(arc_github_config);
 
         App::new()

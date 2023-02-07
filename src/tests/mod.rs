@@ -10,10 +10,12 @@ mod tests {
     use actix_web::body::MessageBody;
     use actix_web::web::Query;
     use crate::error::MyError;
-    use crate::github_oauth::github_oauth::{CallbackParams, GithubOauthFunctions};
+    use crate::github_api::config::{CallbackParams, GithubOauthFunctions};
     use async_trait::async_trait;
     use futures::executor::block_on;
     use crate::{callback, login};
+    use crate::github_api::client::client::GithubClient;
+    use crate::github_api::config::config::{CallbackParams, GithubConfig, GithubOauthFunctions};
 
     // Note this useful idiom: importing names from outer (for mod tests) scope.
 
@@ -28,13 +30,16 @@ mod tests {
         fn get_authorize_url(&self) -> (String, String) {
             (self.get_authorize_url_redirect_url.to_string(), self.get_authorize_url_state.to_string())
         }
-        async fn get_access_token<'a>(&'a self, code: String) -> Result<String, MyError> {
+        async fn get_client<'a>(&'a self, code: String) -> Result<GithubClient, MyError> {
             Err(self.get_access_token_error.clone())
+        }
+        fn parse_client<'a>(&'a self, access_token_text: &str) -> Result<GithubClient, actix_web::Error> {
+            unimplemented!()
         }
     }
 
     #[actix_web::test]
-    async fn test_add() {
+    async fn test_github_login() {
         let query: Query<CallbackParams> = web::Query::from_query("code=6f654b9ee57fd13b7b88&state=fo1Ooc1uofoozeithimah4iaW")
             .unwrap();
 
@@ -81,5 +86,29 @@ mod tests {
         let callback_body_text = str::from_utf8(callback_body.borrow());
         // assert!(resp.status().is_success());
         assert!(true == true)
+    }
+
+    #[actix_web::test]
+    async fn parse_client() {
+        let access_token = "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";
+        let scopes = vec![
+            "repo".to_string(),
+            "user".to_string(),
+        ];
+        let token_type = "bearer";
+        let access_token_response = format!("success; access token: access_token={}&scope={}&token_type={}",
+            access_token,
+            "",
+            token_type,
+        );
+        let client = GithubConfig::parse_client(&access_token_response);
+
+        let expected_client = GithubClient {
+            client: reqwest::Client::default(),
+            access_token: "".to_string(),
+            scopes: "".to_string(),
+            token_type: "".to_string(),
+        };
+        assert_eq!(client)
     }
 }
