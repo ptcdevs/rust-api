@@ -1,0 +1,8 @@
+github_oauth:
+  app_name: rust-api-localdev
+  app_url: https://github.com/settings/applications/2101533
+  client_id: 92e48c903bf0b3e8c4f3
+  redirect_url: http://localhost:8080/callback
+  scopes:
+    - user
+    - repo

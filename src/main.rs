@@ -1,71 +1,109 @@
-mod r#github_client;
+mod github_api;
+mod config;
+mod error;
+mod hello_world;
+mod tests;
 
-use actix_web::cookie::Key;
-use actix_web::dev::JsonBody;
-use actix_web::middleware::ErrorHandlerResponse::Response;
-use actix_web::{get, middleware::Logger, post, web, App, HttpResponse, HttpServer, Responder};
-use actix_session::{Session, SessionMiddleware, storage::RedisActorSessionStore};
-use serde::{Deserialize, Serialize};
-use std::{error::Error, net::Ipv4Addr};
-use utoipa::{OpenApi, ToSchema};
+use std::env;
+use std::sync::Arc;
+use actix_session::{Session, SessionMiddleware, storage::CookieSessionStore};
+use actix_session::config::{PersistentSession, CookieContentSecurity};
+use actix_web::cookie::{self, Key};
+use actix_web::{get,Error,App,HttpResponse,HttpServer,Responder,web};
+use actix_web::error::ErrorInternalServerError;
+use actix_web::web::Redirect;
+use reqwest::StatusCode;
+use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
+use crate::github_api::config::config::{CallbackParams,GithubConfig,GithubOauthFunctions};
+use config::AppConfig;
+use error::MyError::MissingStateError;
+use crate::error::MyError::EmptyTokenError;
 
-#[derive(ToSchema, Deserialize)]
-struct RequestBlob {
-    id: u64,
-    value: String,
+#[utoipa::path(get, path = "/login", responses(
+(status = FOUND, description = "found"),
+(status = 5XX, description = "server error")))]
+#[get("/login")]
+pub async fn login(session: Session, github_oauth: web::Data<dyn GithubOauthFunctions>) -> actix_web::Result<impl Responder, Error> {
+    let github_authorize_url = github_oauth
+        .into_inner()
+        .get_authorize_url();
+    session
+        .insert("state", github_authorize_url.1)
+        .map_err(|e| { ErrorInternalServerError(e) })?;
+
+    Ok(Redirect::to(github_authorize_url.0).using_status_code(StatusCode::FOUND))
 }
 
-#[derive(ToSchema, Serialize)]
-struct ResponseBlob {
-    id: u64,
-    value: String,
+#[utoipa::path(get, path = "/callback", responses(
+(status = OK, description = "ok"),
+(status = 5XX, description = "server error")))]
+#[get("/callback")]
+pub async fn callback(query: web::Query<CallbackParams>, session: Session, github_oauth: web::Data<dyn GithubOauthFunctions>) -> actix_web::Result<impl Responder, Error> {
+    let session_state = session.get::<String>("state")
+        .unwrap_or_else(|_| None)
+        .ok_or_else(|| MissingStateError)?;
+    let callback_params = query.into_inner();
+    let client = if !session_state.is_empty() && session_state.eq(&callback_params.state) {
+        //TODO: parse access token response and return struct
+        let client = github_oauth
+            .into_inner()
+            .get_client(callback_params.code)
+            .await?;
+        Some(client)
+    } else {
+        None
+    }
+        .ok_or_else(|| EmptyTokenError)?;
+    session.remove("state");
+    //TODO: match scopes
+    session
+        .insert("access_token", client.token.clone())
+        .map_err(|e| { ErrorInternalServerError(e) })?;
+
+    Ok(HttpResponse::Ok().body(format!("success; access token: {}", client.token)))
 }
 
-#[utoipa::path(get, path = "/",
-    responses(
-        (status = 200, description = "ok", content_type = "text/plain" ),
-        (status = NOT_FOUND, description = "not found!")))]
-#[get("/")]
-pub async fn hello() -> impl Responder {
-    HttpResponse::Ok().body("Hello world!")
-}
-
-#[utoipa::path(post, path = "/echo", request_body = RequestBlob,
-    responses(
-        (status = 200, description = "request blob received", body = ResponseBlob, content_type = "application/json",
-            example = json ! ({"id": 1123, "value": "test-value"})),
-        (status = "5XX", description = "server error")))]
-#[post("/echo")]
-async fn echo(hello_blob: web::Json<RequestBlob>) -> actix_web::Result<impl Responder> {
-    let response_blob = ResponseBlob {
-        id: hello_blob.id,
-        value: hello_blob.value.to_string(),
-    };
-    Ok(web::Json(response_blob))
-}
-
-#[utoipa::path(get, path = "/hey",
-responses((status = 200, description = "ok"), (status = NOT_FOUND, description = "not found!")))]
-async fn manual_hello() -> impl Responder {
-    HttpResponse::Ok().body("Hey there!")
-}
-
-#[derive(OpenApi)]
-#[openapi(paths(hello, echo), components(schemas(RequestBlob, ResponseBlob)))]
-struct ApiDoc;
 
 #[actix_web::main]
-async fn main() -> std::io::Result<()> {
+async fn main() -> Result<(), std::io::Error> {
+    #[derive(OpenApi)]
+    #[openapi(paths(hello_world::hello, hello_world::echo, hello_world::manual_hello), components(schemas(hello_world::RequestBlob, hello_world::ResponseBlob)))]
+    struct HelloWorld;
+
+    #[derive(OpenApi)]
+    #[openapi(paths(login, callback))]
+    struct RestApi;
+
     HttpServer::new(|| {
+        let config: AppConfig = confy::load_path("config/local/config.yaml").expect("failure reading github creds");
+        let github_secret = env::var("GITHUB_OAUTH_CLIENT_SECRET").expect("missing github client secret from environment variables");
+        let github_config = GithubConfig {
+            client_id: config.github_oauth.client_id,
+            client_secret: github_secret,
+            redirect_url: config.github_oauth.redirect_url,
+            scopes: config.github_oauth.scopes,
+        };
+        let arc_github_config: Arc<dyn GithubOauthFunctions> = Arc::new(github_config);
+        //let github_config_data = web::Data::new(github_api);
+        let github_config_data: web::Data<dyn GithubOauthFunctions> = web::Data::from(arc_github_config);
+
         App::new()
-            .service(hello)
-            .service(echo)
+            .wrap(
+                SessionMiddleware::builder(CookieSessionStore::default(), Key::from(&[0; 64])).cookie_content_security(CookieContentSecurity::Private)
+                    .cookie_secure(false)
+                    .session_lifecycle(PersistentSession::default().session_ttl(cookie::time::Duration::hours(2)))
+                    .build())
+            .service(hello_world::hello)
+            .service(hello_world::echo)
+            .route("/hey", web::get().to(hello_world::manual_hello))
+            .service(login)
+            .service(callback)
             .service(
                 SwaggerUi::new("/swagger-ui/{_:.*}")
-                    .url("/api-doc/openapi.json", ApiDoc::openapi()),
+                    .url("/api-doc/openapi.json", HelloWorld::openapi()),
             )
-            .route("/hey", web::get().to(manual_hello))
+            .app_data(github_config_data)
     })
         .bind(("127.0.0.1", 8080))?
         .run()
