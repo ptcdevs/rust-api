@@ -60,10 +60,10 @@ pub async fn callback(query: web::Query<CallbackParams>, session: Session, githu
     session.remove("state");
     //TODO: match scopes
     session
-        .insert("access_token", client.access_token.clone())
+        .insert("access_token", client.token.clone())
         .map_err(|e| { ErrorInternalServerError(e) })?;
 
-    Ok(HttpResponse::Ok().body(format!("success; access token: {}", client.access_token)))
+    Ok(HttpResponse::Ok().body(format!("success; access token: {}", client.token)))
 }
 
 

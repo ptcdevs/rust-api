@@ -76,12 +76,12 @@ pub mod config {
                 .await
                 .map_err(|err| TokenResponseBodyError)?;
 
-            Ok(GithubClient{
-                client: Client::new(),
-                access_token: "".to_string(),
-                scopes: "".to_string(),
-                token_type: "".to_string(),
-            })
+            // Ok(GithubClient{
+            //     access_token: "".to_string(),
+            //     scopes: "".to_string(),
+            //     token_type: "".to_string(),
+            // })
+            todo!()
         }
         fn parse_client<'a>(&'a self, access_token_text: &str) -> Result<GithubClient, Error> {
             todo!()
