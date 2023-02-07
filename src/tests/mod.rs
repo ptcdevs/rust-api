@@ -103,10 +103,10 @@ mod tests {
         let client = GithubClient::new(&access_token_response);
 
         let expected_client = GithubClient {
-            token: "".to_string(),
-            scopes: "".to_string(),
-            token_type: "".to_string(),
+            token: "",
+            scopes: "",
+            token_type: "",
         };
-        assert_eq!(true,true)
+        todo!()
     }
 }

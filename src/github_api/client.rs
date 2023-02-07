@@ -4,22 +4,22 @@ use reqwest::Client;
 use crate::github_api::client::client::GithubClient;
 
 pub mod client {
-    use std::collections::HashMap;
+    use std::collections::{HashMap, HashSet};
     use futures::{StreamExt, TryFutureExt, TryStreamExt};
     use futures::stream::Collect;
     use crate::error::MyError;
 
     #[derive(Default, Debug)]
-    pub struct GithubClient {
-        pub token: String,
-        pub scopes: String,
-        pub token_type: String,
+    pub struct GithubClient<'a> {
+        pub token: &'a str,
+        pub scopes: &'a str,
+        pub token_type: &'a str,
     }
 
-    impl GithubClient {
-        pub fn new(access_token_response: &str) -> Result<HashMap<&str, &str>, MyError> {
+    impl <'a> GithubClient<'a> {
+        pub fn new(access_token_response: &'a str) -> Result<GithubClient<'a>,MyError> {
             // eg: access_token=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&scope=repo%2Cuser&token_type=bearer
-            let elements: Vec<Result<(&str,&str),MyError>> = access_token_response
+            let query_string_elements = access_token_response
                 .split("&")
                 .map(|elems| {
                     let mut elem_split = elems
@@ -32,23 +32,31 @@ pub mod client {
                         .ok_or(MyError::TokenResponseParseError)?;
 
                     Ok((key,value))
-                })
-                .collect();
-            let kv_pair: Vec<(&str,&str)> = elements
-                .clone()
-                .into_iter()
+                });
+            let kv_pair = query_string_elements
                 .filter(|kv| kv.is_ok())
-                .map(|kv: Result<(&str,&str),MyError>| kv.unwrap())
-                .collect();
+                .map(|kv: Result<(&str,&str),MyError>| kv.unwrap());
                 // .map_ok_or_else(|kv: Result<(&str,&str),MyError>| kv.unwrap(), MyError::TokenResponseParseError);
+            let parsed: HashMap<&str,&str> = HashMap::from_iter(kv_pair);
+            let parsed_keys: HashSet<&str> = parsed
+                .keys()
+                .cloned()
+                .collect();
+            let expected_keys: HashSet<&str> = vec!["access_token", "scope", "token_type"]
+                .into_iter()
+                .collect();
 
-            let parsed: Result<HashMap<&str,&str>,MyError> = if kv_pair.clone().into_iter().count() == 3 {
-                Ok(HashMap::from_iter(kv_pair))
-            }  else {
+            let result = if parsed_keys == expected_keys {
+                Ok(GithubClient {
+                    token: parsed[&"access_token"],
+                    scopes: parsed[&"scope"],
+                    token_type: parsed[&"token_type"],
+                })
+            } else {
                 Err(MyError::TokenResponseParseError)
             };
 
-            parsed
+            result
         }
     }
 }

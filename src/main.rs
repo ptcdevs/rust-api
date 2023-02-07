@@ -47,7 +47,6 @@ pub async fn callback(query: web::Query<CallbackParams>, session: Session, githu
     let client = if !session_state.is_empty() && session_state.eq(&callback_params.state) {
         //TODO: parse access token response and return struct
         let client = github_oauth
-            .into_inner()
             .get_client(callback_params.code)
             .await?;
         Some(client)
