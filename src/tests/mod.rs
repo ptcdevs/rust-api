@@ -26,7 +26,7 @@ mod tests {
         fn get_authorize_url(&self) -> (String, String) {
             (self.get_authorize_url_redirect_url.to_string(), self.get_authorize_url_state.to_string())
         }
-        async fn get_client(&self, _: String) -> Result<GithubClient, MyError> {
+        async fn get_client(&self, _: &str) -> Result<GithubClient, MyError> {
             Err(self.get_access_token_error.clone())
         }
     }

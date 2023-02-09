@@ -26,7 +26,7 @@ pub mod config {
     #[async_trait]
     pub trait GithubOauthFunctions {
         fn get_authorize_url(&self) -> (String, String);
-        async fn get_client(&self, code: String) -> Result<GithubClient, MyError>;
+        async fn get_client(&self, code: &str) -> Result<GithubClient, MyError>;
     }
 
     #[async_trait]
@@ -42,7 +42,7 @@ pub mod config {
 
             (authorize_url, state.to_string())
         }
-        async fn get_client(&self, code: String) -> Result<GithubClient, MyError> {
+        async fn get_client(&self, code: &str) -> Result<GithubClient, MyError> {
             let token_url = "https://github.com/login/oauth/access_token";
             let token_request_body = format!(
                 "client_id={}&client_secret={}&code={}&redirect_uri={}",
