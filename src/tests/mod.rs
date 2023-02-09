@@ -88,11 +88,11 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn parse_client() {
+    async fn parse_response_to_client() {
         let access_token = "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";
         let scopes = vec![
-            "repo".to_string(),
-            "user".to_string(),
+            "repo",
+            "user",
         ];
         let token_type = "bearer";
         let access_token_response = format!("access_token={}&scope={}&token_type={}",
@@ -100,13 +100,15 @@ mod tests {
             scopes.join("%2C"),
             token_type,
         );
-        let client = GithubClient::new(&access_token_response);
 
+        let client = GithubClient::new(&access_token_response)
+            .unwrap();
         let expected_client = GithubClient {
-            token: "",
-            scopes: "",
-            token_type: "",
+            token: access_token,
+            scopes: scopes,
+            token_type: token_type,
         };
-        todo!()
+
+        assert_eq!(client,expected_client, "GithubClient not being properly created from api response text");
     }
 }

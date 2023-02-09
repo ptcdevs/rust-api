@@ -9,10 +9,10 @@ pub mod client {
     use futures::stream::Collect;
     use crate::error::MyError;
 
-    #[derive(Default, Debug)]
+    #[derive(Default, Debug, PartialEq, Eq)]
     pub struct GithubClient<'a> {
         pub token: &'a str,
-        pub scopes: &'a str,
+        pub scopes: Vec<&'a str>,
         pub token_type: &'a str,
     }
 
@@ -33,12 +33,11 @@ pub mod client {
 
                     Ok((key,value))
                 });
-            let kv_pair = query_string_elements
+            let kv_pair: Result<Vec<(&str,&str)>,MyError> = query_string_elements
                 .filter(|kv| kv.is_ok())
-                .map(|kv: Result<(&str,&str),MyError>| kv.unwrap());
-                // .map_ok_or_else(|kv: Result<(&str,&str),MyError>| kv.unwrap(), MyError::TokenResponseParseError);
-            let parsed: HashMap<&str,&str> = HashMap::from_iter(kv_pair);
-            let parsed_keys: HashSet<&str> = parsed
+                .collect();
+            let parsed_hashmap: HashMap<&str,&str> = HashMap::from_iter(kv_pair?);
+            let parsed_keys: HashSet<&str> = parsed_hashmap
                 .keys()
                 .cloned()
                 .collect();
@@ -46,18 +45,26 @@ pub mod client {
                 .into_iter()
                 .collect();
 
-            let result = if parsed_keys == expected_keys {
+            let client_result = if parsed_keys == expected_keys {
+                let scopes: Vec<&'a str> = parsed_hashmap
+                    .get("scope")
+                    .ok_or(MyError::TokenResponseParseError)?
+                    .split("%2C")
+                    .map(|e| e)
+                    .collect();
                 Ok(GithubClient {
-                    token: parsed[&"access_token"],
-                    scopes: parsed[&"scope"],
-                    token_type: parsed[&"token_type"],
+                    token: parsed_hashmap[&"access_token"],
+                    token_type: parsed_hashmap[&"token_type"],
+                    scopes,
                 })
             } else {
                 Err(MyError::TokenResponseParseError)
             };
 
-            result
+            client_result
         }
+
+
     }
 }
 
