@@ -1,23 +1,17 @@
-use std::borrow::Borrow;
-use std::cmp;
-use reqwest::Client;
-use crate::github_api::client::client::GithubClient;
-
 pub mod client {
     use std::collections::{HashMap, HashSet};
-    use futures::{StreamExt, TryFutureExt, TryStreamExt};
-    use futures::stream::Collect;
+    pub use futures::StreamExt;
     use crate::error::MyError;
 
-    #[derive(Default, Debug, PartialEq, Eq)]
-    pub struct GithubClient<'a> {
-        pub token: &'a str,
-        pub scopes: Vec<&'a str>,
-        pub token_type: &'a str,
+    #[derive(Default, Debug, PartialEq, Eq, Clone)]
+    pub struct GithubClient {
+        pub token: String,
+        pub scopes: Vec<String>,
+        pub token_type: String,
     }
 
-    impl <'a> GithubClient<'a> {
-        pub fn new(access_token_response: &'a str) -> Result<GithubClient<'a>,MyError> {
+    impl GithubClient {
+        pub fn new(access_token_response: String) -> Result<GithubClient,MyError> {
             // eg: access_token=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&scope=repo%2Cuser&token_type=bearer
             let query_string_elements = access_token_response
                 .split("&")
@@ -46,15 +40,15 @@ pub mod client {
                 .collect();
 
             let client_result = if parsed_keys == expected_keys {
-                let scopes: Vec<&'a str> = parsed_hashmap
+                let scopes = parsed_hashmap
                     .get("scope")
                     .ok_or(MyError::TokenResponseParseError)?
                     .split("%2C")
-                    .map(|e| e)
+                    .map(|e| e.to_string())
                     .collect();
                 Ok(GithubClient {
-                    token: parsed_hashmap[&"access_token"],
-                    token_type: parsed_hashmap[&"token_type"],
+                    token: parsed_hashmap[&"access_token"].to_string(),
+                    token_type: parsed_hashmap[&"token_type"].to_string(),
                     scopes,
                 })
             } else {
@@ -63,8 +57,6 @@ pub mod client {
 
             client_result
         }
-
-
     }
 }
 

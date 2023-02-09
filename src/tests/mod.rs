@@ -1,20 +1,17 @@
 #[cfg(test)]
 mod tests {
-    use std::borrow::Borrow;
-    use std::error::Error;
-    use std::sync::Arc;
-    use std::str;
-    use actix_session::SessionExt;
-    use super::*;
-    use actix_web::{App, http::{self, header::ContentType}, Responder, test, web};
     use actix_web::body::MessageBody;
     use actix_web::web::Query;
-    use crate::error::MyError;
+    use actix_web::{App, test, web};
     use async_trait::async_trait;
-    use futures::executor::block_on;
+    use crate::error::MyError;
+    use std::borrow::Borrow;
+    use std::str;
+    use std::sync::Arc;
+
     use crate::{callback, login};
     use crate::github_api::client::client::GithubClient;
-    use crate::github_api::config::config::{CallbackParams, GithubConfig, GithubOauthFunctions};
+    use crate::github_api::config::config::{CallbackParams, GithubOauthFunctions};
 
     // Note this useful idiom: importing names from outer (for mod tests) scope.
 
@@ -44,15 +41,15 @@ mod tests {
 
         let state = "Ohbiuqu5di";
         let redirect_url = format!("https://github.com/login/oauth/authorize?client_id={}&redirect_uri={}&scope={}&state={}&allow_signup=false",
-            "12345",
-            "callback_url",
-            "scopes",
-            state
+                                   "12345",
+                                   "callback_url",
+                                   "scopes",
+                                   state
         );
         let github_config = GithubOauthConfigMock {
             get_authorize_url_state: state.to_string(),
             get_authorize_url_redirect_url: redirect_url.to_string(),
-            get_access_token_error: MyError::TokenResponseError
+            get_access_token_error: MyError::TokenResponseError,
         };
         let github_config_arc: Arc<dyn GithubOauthFunctions> = Arc::new(github_config);
         let github_config_data: web::Data<dyn GithubOauthFunctions> = web::Data::from(github_config_arc);
@@ -71,7 +68,7 @@ mod tests {
             .headers()
             .into_iter()
             .map(|header|
-                (header.1.to_str().unwrap().to_string())) .collect::<Vec<(String)>>();
+                (header.1.to_str().unwrap().to_string())).collect::<Vec<(String)>>();
 
         let callback_request = test::TestRequest::get()
             .uri(format!("/callback?code=6f654b9ee57fd13b7b88&state={}", state).as_str())
@@ -91,24 +88,24 @@ mod tests {
     async fn parse_response_to_client() {
         let access_token = "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";
         let scopes = vec![
-            "repo",
-            "user",
+            "repo".to_string(),
+            "user".to_string(),
         ];
         let token_type = "bearer";
         let access_token_response = format!("access_token={}&scope={}&token_type={}",
-            access_token,
-            scopes.join("%2C"),
-            token_type,
+                                            access_token,
+                                            scopes.join("%2C"),
+                                            token_type,
         );
 
-        let client = GithubClient::new(&access_token_response)
+        let client = GithubClient::new(access_token_response)
             .unwrap();
         let expected_client = GithubClient {
-            token: access_token,
+            token: access_token.to_string(),
             scopes: scopes,
-            token_type: token_type,
+            token_type: token_type.to_string(),
         };
 
-        assert_eq!(client,expected_client, "GithubClient not being properly created from api response text");
+        assert_eq!(client, expected_client, "GithubClient not being properly created from api response text");
     }
 }

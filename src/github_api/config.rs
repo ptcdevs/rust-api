@@ -1,20 +1,14 @@
 pub mod config {
-    use actix_web::{Error, get, http::StatusCode, Responder, web::Redirect};
-    use utoipa::ToSchema;
-    use std::{collections::HashMap, sync::Mutex};
-    use std::borrow::{Borrow, Cow};
-    use std::os::linux::raw::stat;
-    use std::string::FromUtf8Error;
-    use once_cell::sync::Lazy;
-    use crate::error::MyError;
-    use crate::error::MyError::{EmptyTokenError, MissingStateError, SessionError, TokenResponseError, TokenResponseBodyError};
-    use reqwest::{Client, Response};
-    use serde::Deserialize;
-    use urlencoding::decode;
+    use actix_web::Error;
     use async_trait::async_trait;
-    use crate::github_api::client::client::GithubClient;
-    use url::Url;
+    use reqwest::{Client};
+    use serde::Deserialize;
+    use std::borrow::{Borrow, Cow};
+    use std::string::FromUtf8Error;
 
+    use crate::error::MyError;
+    use crate::error::MyError::{TokenResponseBodyError, TokenResponseError};
+    use crate::github_api::client::client::GithubClient;
 
     #[derive(Clone)]
     pub struct GithubConfig {
@@ -52,7 +46,7 @@ pub mod config {
 
             (authorize_url, state.to_string())
         }
-        async fn get_client<'a>(&'a self, code: String) -> Result<GithubClient, MyError> {
+        async fn get_client(&self, code: String) -> Result<GithubClient, MyError> {
             let token_url = "https://github.com/login/oauth/access_token";
             let token_request_body = format!(
                 "client_id={}&client_secret={}&code={}&redirect_uri={}",
@@ -68,20 +62,15 @@ pub mod config {
                 .send()
                 .await
                 .map_err(|err| TokenResponseError)?;
-            let response_status = response
-                .status()
-                .is_success();
+            // let response_status = response
+            //     .status()
+            //     .is_success();
             let response_body = response
                 .text()
                 .await
                 .map_err(|err| TokenResponseBodyError)?;
-
-            // Ok(GithubClient{
-            //     access_token: "".to_string(),
-            //     scopes: "".to_string(),
-            //     token_type: "".to_string(),
-            // })
-            todo!()
+            let client = GithubClient::new(response_body);
+            client
         }
         fn parse_client<'a>(&'a self, access_token_text: &str) -> Result<GithubClient, Error> {
             todo!()

@@ -1,24 +1,24 @@
-mod github_api;
 mod config;
 mod error;
+mod github_api;
 mod hello_world;
 mod tests;
 
-use std::env;
-use std::sync::Arc;
-use actix_session::{Session, SessionMiddleware, storage::CookieSessionStore};
 use actix_session::config::{PersistentSession, CookieContentSecurity};
+use actix_session::{Session, SessionMiddleware, storage::CookieSessionStore};
 use actix_web::cookie::{self, Key};
-use actix_web::{get,Error,App,HttpResponse,HttpServer,Responder,web};
 use actix_web::error::ErrorInternalServerError;
 use actix_web::web::Redirect;
+use actix_web::{get,Error,App,HttpResponse,HttpServer,Responder,web};
+use config::AppConfig;
+use crate::error::MyError::EmptyTokenError;
+use crate::github_api::config::config::{CallbackParams,GithubConfig,GithubOauthFunctions};
+use error::MyError::MissingStateError;
 use reqwest::StatusCode;
+use std::env;
+use std::sync::Arc;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
-use crate::github_api::config::config::{CallbackParams,GithubConfig,GithubOauthFunctions};
-use config::AppConfig;
-use error::MyError::MissingStateError;
-use crate::error::MyError::EmptyTokenError;
 
 #[utoipa::path(get, path = "/login", responses(
 (status = FOUND, description = "found"),
