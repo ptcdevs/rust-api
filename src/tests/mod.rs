@@ -26,11 +26,8 @@ mod tests {
         fn get_authorize_url(&self) -> (String, String) {
             (self.get_authorize_url_redirect_url.to_string(), self.get_authorize_url_state.to_string())
         }
-        async fn get_client<'a>(&'a self, code: String) -> Result<GithubClient, MyError> {
+        async fn get_client(&self, _: String) -> Result<GithubClient, MyError> {
             Err(self.get_access_token_error.clone())
-        }
-        fn parse_client<'a>(&'a self, access_token_text: &str) -> Result<GithubClient, actix_web::Error> {
-            unimplemented!()
         }
     }
 
@@ -68,7 +65,7 @@ mod tests {
             .headers()
             .into_iter()
             .map(|header|
-                (header.1.to_str().unwrap().to_string())).collect::<Vec<(String)>>();
+                (header.1.to_str().unwrap().to_string())).collect::<Vec<String>>();
 
         let callback_request = test::TestRequest::get()
             .uri(format!("/callback?code=6f654b9ee57fd13b7b88&state={}", state).as_str())
@@ -80,8 +77,10 @@ mod tests {
             .try_into_bytes()
             .unwrap();
         let callback_body_text = str::from_utf8(callback_body.borrow());
-        // assert!(resp.status().is_success());
-        assert!(true == true)
+        //TODO: and pass to GithubClient::new()
+        // let client = GithubClient::new(callback_body_text);
+        //TODO: update this to
+        todo!()
     }
 
     #[actix_web::test]
@@ -98,7 +97,7 @@ mod tests {
                                             token_type,
         );
 
-        let client = GithubClient::new(access_token_response)
+        let client = GithubClient::new(&access_token_response)
             .unwrap();
         let expected_client = GithubClient {
             token: access_token.to_string(),

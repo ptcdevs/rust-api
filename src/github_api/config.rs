@@ -1,10 +1,7 @@
 pub mod config {
-    use actix_web::Error;
     use async_trait::async_trait;
-    use reqwest::{Client};
+    use reqwest::Client;
     use serde::Deserialize;
-    use std::borrow::{Borrow, Cow};
-    use std::string::FromUtf8Error;
 
     use crate::error::MyError;
     use crate::error::MyError::{TokenResponseBodyError, TokenResponseError};
@@ -29,8 +26,7 @@ pub mod config {
     #[async_trait]
     pub trait GithubOauthFunctions {
         fn get_authorize_url(&self) -> (String, String);
-        async fn get_client<'a>(&'a self, code: String) -> Result<GithubClient, MyError>;
-        fn parse_client<'a>(&'a self, access_token_text: &str) -> Result<GithubClient, Error>;
+        async fn get_client(&self, code: String) -> Result<GithubClient, MyError>;
     }
 
     #[async_trait]
@@ -69,11 +65,8 @@ pub mod config {
                 .text()
                 .await
                 .map_err(|err| TokenResponseBodyError)?;
-            let client = GithubClient::new(response_body);
+            let client = GithubClient::new(&response_body);
             client
-        }
-        fn parse_client<'a>(&'a self, access_token_text: &str) -> Result<GithubClient, Error> {
-            todo!()
         }
     }
 
@@ -81,19 +74,5 @@ pub mod config {
     pub struct CallbackParams {
         pub code: String,
         pub state: String,
-    }
-
-    #[derive(Debug, Deserialize)]
-    pub struct AccessTokenResponse<'a> {
-        pub access_token: &'a str,
-        pub scope: &'a str,
-        pub token_type: &'a str,
-    }
-
-    impl<'a> AccessTokenResponse<'a> {
-        pub fn get_scopes(&'a self) -> Result<Cow<'a, str>, FromUtf8Error> {
-            let decoded_scopes = urlencoding::decode(self.scope.borrow());
-            decoded_scopes
-        }
     }
 }

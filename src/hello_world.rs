@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 use actix_web::{get, HttpResponse, post, Responder, web};
-use utoipa::{OpenApi, ToSchema};
-use utoipa_swagger_ui::SwaggerUi;
+use utoipa::ToSchema;
 
 #[derive(ToSchema, Deserialize)]
 pub struct RequestBlob {

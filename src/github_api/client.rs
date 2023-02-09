@@ -11,7 +11,7 @@ pub mod client {
     }
 
     impl GithubClient {
-        pub fn new(access_token_response: String) -> Result<GithubClient,MyError> {
+        pub fn new(access_token_response: &str) -> Result<GithubClient,MyError> {
             // eg: access_token=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&scope=repo%2Cuser&token_type=bearer
             let query_string_elements = access_token_response
                 .split("&")
