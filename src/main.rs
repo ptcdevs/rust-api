@@ -5,20 +5,21 @@ mod hello_world;
 mod tests;
 
 use actix_session::config::{PersistentSession, CookieContentSecurity};
-use actix_session::{Session, SessionMiddleware, storage::CookieSessionStore};
+use actix_session::{Session, SessionGetError, SessionMiddleware, storage::CookieSessionStore};
 use actix_web::cookie::{self, Key};
 use actix_web::error::ErrorInternalServerError;
 use actix_web::web::Redirect;
-use actix_web::{get,Error,App,HttpResponse,HttpServer,Responder,web};
+use actix_web::{get, Error, App, HttpResponse, HttpServer, Responder, web};
 use config::AppConfig;
-use crate::error::MyError::EmptyTokenError;
-use crate::github_api::config::config::{CallbackParams,GithubConfig,GithubOauthFunctions};
+use crate::error::MyError::{EmptyTokenError, UnauthorizedError};
+use crate::github_api::config::config::{CallbackParams, GithubConfig, GithubOauthFunctions};
 use error::MyError::MissingStateError;
 use reqwest::StatusCode;
 use std::env;
 use std::sync::Arc;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
+use crate::error::MyError;
 
 #[utoipa::path(get, path = "/login", responses(
 (status = FOUND, description = "found"),
@@ -60,7 +61,21 @@ pub async fn callback(query: web::Query<CallbackParams>, session: Session, githu
         .insert("access_token", client.token.clone())
         .map_err(|e| { ErrorInternalServerError(e) })?;
 
+    //TODO: pull redirect url out of session and send there
     Ok(HttpResponse::Ok().body(format!("success; access token: {}", client.token)))
+}
+
+#[utoipa::path(get, path = "/commits", responses(
+(status = OK, description = "ok"),
+(status = 5XX, description = "server error")))]
+#[get("/commits")]
+pub async fn commits(session: Session, github_oauth: web::Data<dyn GithubOauthFunctions>) -> actix_web::Result<impl Responder, Error> {
+    let session_state = session.get::<String>("access_token")
+        .unwrap_or_else(|_| None)
+        .ok_or_else(|| UnauthorizedError)?;
+    //TODO: save redirect back to /commits somewhere in session
+
+    Ok(HttpResponse::Ok().body(format!("tba")))
 }
 
 
@@ -98,6 +113,7 @@ async fn main() -> Result<(), std::io::Error> {
             .route("/hey", web::get().to(hello_world::manual_hello))
             .service(login)
             .service(callback)
+            .service(commits)
             .service(
                 SwaggerUi::new("/swagger-ui/{_:.*}")
                     .url("/api-doc/openapi.json", HelloWorld::openapi()),

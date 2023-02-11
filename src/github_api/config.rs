@@ -51,21 +51,25 @@ pub mod config {
                 code,
                 self.redirect_url);
 
-            //TODO: extract this to trait function for testing
             let response = Client::new()
                 .post(token_url)
                 .body(token_request_body)
                 .send()
                 .await
                 .map_err(|err| TokenResponseError)?;
-            // let response_status = response
-            //     .status()
-            //     .is_success();
+
+            //TODO: validate response
+            let response_status = response
+                .status()
+                .is_success();
+
             let response_body = response
                 .text()
                 .await
                 .map_err(|err| TokenResponseBodyError)?;
+
             let client = GithubClient::new(&response_body);
+
             client
         }
     }
