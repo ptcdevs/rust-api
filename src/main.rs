@@ -27,6 +27,7 @@ use crate::error::MyError;
 (status = 5XX, description = "server error")))]
 #[get("/login")]
 pub async fn login(session: Session, github_oauth: web::Data<dyn GithubOauthFunctions>) -> actix_web::Result<impl Responder, Error> {
+    //TODO: skip login if access_token exists
     let github_authorize_url = github_oauth
         .get_authorize_url();
     session
@@ -47,31 +48,24 @@ pub async fn login(session: Session, github_oauth: web::Data<dyn GithubOauthFunc
 (status = 5XX, description = "server error")))]
 #[get("/callback")]
 pub async fn callback(query: web::Query<CallbackParams>, session: Session, github_oauth: web::Data<dyn GithubOauthFunctions>) -> actix_web::Result<impl Responder, Error> {
+    //TODO: use session.remove(),
     let session_state = session.get::<String>("state")
         .unwrap_or(None)
         .ok_or_else(|| MissingStateError)?;
 
     let callback_params = query.into_inner();
-    let session_state_notempty = !session_state.is_empty();
-    let session_state_match = session_state.eq(&callback_params.state);
     let client = if !session_state.is_empty() && session_state.eq(&callback_params.state) {
+        //would use (bool).then().ok_or().map_err()?, but async closures are currently unstable
         let client = github_oauth
             .get_client(&callback_params.code)
             .await?;
+        session.remove("state");
         Ok(client)
     } else {
         Err(EmptyTokenError)
     }?;
-    // would use this if async closures weren't unstable
-    // let client = (!session_state.is_empty() && session_state.eq(&callback_params.state))
-    //     .then(async || {
-    //         github_oauth
-    //             .get_client(&callback_params.code)
-    //             .await?
-    //     })
-    //     .ok_or(EmptyTokenError);
 
-    //TODO: match scopes
+    //TODO: match scopes, here or in github_oauth.get_client()
     session
         .insert("access_token", client.token.clone())
         .map_err(|e| SessionError)?;
@@ -81,17 +75,6 @@ pub async fn callback(query: web::Query<CallbackParams>, session: Session, githu
         .map(|url| HttpResponse::Found().insert_header(("Location", url)).finish())
         .unwrap_or(HttpResponse::Ok().body(format!("success; access token: {}", client.token)));
     Ok(redirect)
-    //alternative way to write the above statement
-    // let redirect_url = session.get::<String>("redirect_url")
-    //     .unwrap_or_else(|_| None);
-    //
-    // let response = Ok(match redirect_url {
-    //     Some(redirect_url) => {
-    //         HttpResponse::Found().insert_header(("Location", redirect_url)).finish()
-    //     }
-    //     None => HttpResponse::Ok().body(format!("success; access token: {}", client.token))
-    // });
-    // response
 }
 
 #[utoipa::path(get, path = "/commits", responses(
