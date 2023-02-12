@@ -17,6 +17,7 @@ use error::MyError::MissingStateError;
 use reqwest::StatusCode;
 use std::env;
 use std::sync::Arc;
+use futures::TryFutureExt;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 use crate::error::MyError;
@@ -27,7 +28,6 @@ use crate::error::MyError;
 #[get("/login")]
 pub async fn login(session: Session, github_oauth: web::Data<dyn GithubOauthFunctions>) -> actix_web::Result<impl Responder, Error> {
     let github_authorize_url = github_oauth
-        .into_inner()
         .get_authorize_url();
     session
         .insert("state", github_authorize_url.1)
@@ -36,29 +36,42 @@ pub async fn login(session: Session, github_oauth: web::Data<dyn GithubOauthFunc
     Ok(Redirect::to(github_authorize_url.0).using_status_code(StatusCode::FOUND))
 }
 
+// on receiving callback:
+// * extract state from session (and remove)
+// * check that state matches session
+// * if match, fetch access token (via github client); else throw error
+// * insert access token to session
+// * redirect to where they were going (pull redirect url from session, if exists); return 200 if not
 #[utoipa::path(get, path = "/callback", responses(
 (status = OK, description = "ok"),
 (status = 5XX, description = "server error")))]
 #[get("/callback")]
 pub async fn callback(query: web::Query<CallbackParams>, session: Session, github_oauth: web::Data<dyn GithubOauthFunctions>) -> actix_web::Result<impl Responder, Error> {
-    let session_state = session.get::<String>("state")
-        .unwrap_or_else(|_| None)
+    let session_state = session.remove("state")
         .ok_or_else(|| MissingStateError)?;
+
     let callback_params = query.into_inner();
     let client = if !session_state.is_empty() && session_state.eq(&callback_params.state) {
         let client = github_oauth
             .get_client(&callback_params.code)
             .await?;
-        Some(client)
+        Ok(client)
     } else {
-        None
-    }
-        .ok_or_else(|| EmptyTokenError)?;
-    session.remove("state");
+        Err(EmptyTokenError)
+    }?;
+    // would use this if async closures weren't unstable
+    // let client = (!session_state.is_empty() && session_state.eq(&callback_params.state))
+    //     .then(async || {
+    //         github_oauth
+    //             .get_client(&callback_params.code)
+    //             .await?
+    //     })
+    //     .ok_or(EmptyTokenError);
+
     //TODO: match scopes
     session
         .insert("access_token", client.token.clone())
-        .map_err(|e| { ErrorInternalServerError(e) })?;
+        .map_err(|e| SessionError)?;
 
     let redirect = session.get::<String>("redirect_url")
         .unwrap_or_else(|_| None)
