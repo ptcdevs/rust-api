@@ -47,10 +47,13 @@ pub async fn login(session: Session, github_oauth: web::Data<dyn GithubOauthFunc
 (status = 5XX, description = "server error")))]
 #[get("/callback")]
 pub async fn callback(query: web::Query<CallbackParams>, session: Session, github_oauth: web::Data<dyn GithubOauthFunctions>) -> actix_web::Result<impl Responder, Error> {
-    let session_state = session.remove("state")
+    let session_state = session.get::<String>("state")
+        .unwrap_or(None)
         .ok_or_else(|| MissingStateError)?;
 
     let callback_params = query.into_inner();
+    let session_state_notempty = !session_state.is_empty();
+    let session_state_match = session_state.eq(&callback_params.state);
     let client = if !session_state.is_empty() && session_state.eq(&callback_params.state) {
         let client = github_oauth
             .get_client(&callback_params.code)
