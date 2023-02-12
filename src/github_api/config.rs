@@ -58,7 +58,7 @@ pub mod config {
                 .await
                 .map_err(|err| TokenResponseError)?;
 
-            //TODO: validate response
+            //TODO: validate response, make sure scopes match
             let response_status = response
                 .status()
                 .is_success();
