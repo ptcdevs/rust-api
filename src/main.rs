@@ -5,22 +5,20 @@ mod hello_world;
 mod tests;
 
 use actix_session::config::{PersistentSession, CookieContentSecurity};
-use actix_session::{Session, SessionGetError, SessionInsertError, SessionMiddleware, storage::CookieSessionStore};
+use actix_session::{Session, SessionMiddleware, storage::CookieSessionStore};
 use actix_web::cookie::{self, Key};
 use actix_web::error::ErrorInternalServerError;
 use actix_web::web::Redirect;
 use actix_web::{get, Error, App, HttpResponse, HttpServer, Responder, web};
 use config::AppConfig;
-use crate::error::MyError::{EmptyTokenError, SessionError, UnauthorizedError};
+use crate::error::MyError::{EmptyTokenError, SessionError, UnauthorizedError, MissingStateError};
 use crate::github_api::config::config::{CallbackParams, GithubConfig, GithubOauthFunctions};
-use error::MyError::MissingStateError;
 use reqwest::StatusCode;
 use std::env;
 use std::sync::Arc;
-use futures::TryFutureExt;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
-use crate::error::MyError;
+
 
 #[utoipa::path(get, path = "/login", responses(
 (status = FOUND, description = "found"),
@@ -32,7 +30,7 @@ pub async fn login(session: Session, github_oauth: web::Data<dyn GithubOauthFunc
         .get_authorize_url();
     session
         .insert("state", github_authorize_url.1)
-        .map_err(|e| { ErrorInternalServerError(e) })?;
+        .map_err(|e| SessionError)?;
 
     Ok(Redirect::to(github_authorize_url.0).using_status_code(StatusCode::FOUND))
 }
