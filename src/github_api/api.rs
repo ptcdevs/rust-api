@@ -14,10 +14,12 @@ pub async fn get_user(access_token: &str) -> Result<String, MyError> {
         .send()
         .map_err(|err| MyError::GithubApi(err.to_string()))
         .await?;
+    //TODO: throw MyError if status code is not 200
     let body = response
         .text()
         .map_err(|err| MyError::GithubApi(err.to_string()))
         .await?;
+    //TODO: throw MyError if cannot parse out username
 
     println!("tba");
     todo!()
