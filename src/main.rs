@@ -7,17 +7,18 @@ mod tests;
 use actix_session::config::{PersistentSession, CookieContentSecurity};
 use actix_session::{Session, SessionMiddleware, storage::CookieSessionStore};
 use actix_web::cookie::{self, Key};
-use actix_web::error::ErrorInternalServerError;
 use actix_web::web::Redirect;
-use actix_web::{get, Error, App, HttpResponse, HttpServer, Responder, web};
+use actix_web::{get, Error, App, HttpResponse, HttpServer, Responder, web, HttpMessage};
 use config::AppConfig;
 use crate::error::MyError::{EmptyTokenError, SessionError, UnauthorizedError, MissingStateError};
-use crate::github_api::config::config::{CallbackParams, GithubConfig, GithubOauthFunctions};
+use crate::github_api::config::{CallbackParams, GithubConfig, GithubOauthFunctions};
 use reqwest::StatusCode;
 use std::env;
 use std::sync::Arc;
+use futures::{TryFutureExt};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
+use crate::error::MyError;
 
 
 #[utoipa::path(get, path = "/login", responses(
@@ -63,10 +64,13 @@ pub async fn callback(query: web::Query<CallbackParams>, session: Session, githu
         Err(EmptyTokenError)
     }?;
 
+    //TODO: get username
+    let body = github_api::api::get_user(&client.token).await?;
     //TODO: match scopes, here or in github_oauth.get_client()
     session
         .insert("access_token", client.token.clone())
         .map_err(|e| SessionError)?;
+    //TODO: get user name from API
 
     let redirect = session.get::<String>("redirect_url")
         .unwrap_or_else(|_| None)
@@ -91,10 +95,6 @@ pub async fn commits(session: Session, github_oauth: web::Data<dyn GithubOauthFu
             };
         })?;
 
-    //TODO: save redirect back to /commits somewhere in session
-    session
-        .insert("redirect_url", "/callback")
-        .map_err(|e| { ErrorInternalServerError(e) })?;
 
     Ok(HttpResponse::Ok().body(format!("commits tba; access_token: {}", access_token)))
 }
